@@ -1,0 +1,7 @@
+task_id,release_time,duration,dependencies
+A,0,2,
+B,0,3,
+C,0,6,
+D,0,2,A;B
+E,0,4,C
+F,0,1,D;E
