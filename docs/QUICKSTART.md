@@ -18,6 +18,11 @@
 6. Open a pull request with tests and a small example. Another member reviews it.
    Resolve interface changes together before merging.
 
+Every push to a branch is also reviewed by an AI review agent against the team
+plan ([rubric](../.github/review/RUBRIC.md)). Its report goes to Pranav and onto
+your open pull request. It is advisory and does not replace the teammate review.
+Put `[skip review]` in a commit message to skip it for work-in-progress pushes.
+
 Suggested branch names: `feature/ring-deque`, `feature/directed-graph`,
 `feature/id-hash-table`, `feature/event-engine`. Keep unrelated changes separate.
 
