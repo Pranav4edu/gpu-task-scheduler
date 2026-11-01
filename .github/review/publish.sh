@@ -22,6 +22,12 @@ repository secret is set.
 - ./run.sh: $BUILD_RESULT
 - Commit authors: $AUTHORS
 - Logs: $RUN_URL
+
+Last output from Claude:
+
+\`\`\`text
+$(tail -n 15 _review/claude.log 2>/dev/null || echo "(no output)")
+\`\`\`
 EOF
 fi
 

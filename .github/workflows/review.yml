@@ -51,16 +51,21 @@ jobs:
           printf -- '- ./run.sh on Linux: %s (full output in _review/context/build.log)\n' "$result" >> _review/context/meta.md
           printf 'result=%s\n' "$result" >> "$GITHUB_OUTPUT"
 
+      # The CLI is called directly because claude-code-action rejects push events.
+      - name: Install Claude Code
+        if: steps.scope.outputs.skip != 'true'
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Review with Claude
         id: claude
         if: steps.scope.outputs.skip != 'true'
         continue-on-error: true
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ github.token }}
-          prompt: |
+        timeout-minutes: 25
+        env:
+          OAUTH_TOKEN_SECRET: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY_SECRET: ${{ secrets.ANTHROPIC_API_KEY }}
+          REVIEW_MODEL: ${{ vars.REVIEW_MODEL || 'claude-opus-5-5' }}
+          PROMPT: |
             You are the code-review agent for CE 6320 Group 4's C++17 GPU task
             scheduling simulator. Pranav, the repository owner, reads your report to
             decide whether this work should go into main.
@@ -95,10 +100,27 @@ jobs:
                rubric.
             Don't edit repository files, commit, push or comment on GitHub. The
             workflow posts your report.
-          claude_args: |
-            --model ${{ vars.REVIEW_MODEL || 'claude-opus-5-5' }}
-            --max-turns 40
-            --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git ls-files:*),Bash(./run.sh),Bash(./code/build/gpu_sim:*),Bash(c++:*),Bash(./_review/scratch/a.out)"
+        # Only pre-approved tools run; a branch's own .claude/ settings and MCP
+        # servers are ignored so pushed code cannot widen the reviewer's access.
+        run: |
+          [ -n "$OAUTH_TOKEN_SECRET" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN_SECRET"
+          [ -n "$API_KEY_SECRET" ] && export ANTHROPIC_API_KEY="$API_KEY_SECRET"
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ]; then
+            echo "No Claude credentials: set the CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY secret." | tee _review/claude.log
+            exit 1
+          fi
+          status=0
+          claude -p "$PROMPT" \
+            --model "$REVIEW_MODEL" \
+            --max-turns 60 \
+            --permission-mode dontAsk \
+            --permission-prompts none \
+            --setting-sources user \
+            --strict-mcp-config \
+            --allowedTools "Read,Grep,Glob,Write,Bash(git diff *),Bash(git log *),Bash(git show *),Bash(git blame *),Bash(git ls-files *),Bash(./run.sh),Bash(./code/build/gpu_sim *),Bash(c++ *),Bash(./_review/scratch/a.out)" \
+            > _review/claude.log 2>&1 || status=$?
+          tail -n 20 _review/claude.log
+          exit "$status"
 
       - name: Publish report
         id: report

@@ -61,3 +61,6 @@ The workflow file has to be on `main` for branches created from `main` to carry 
   Only add the four team members as collaborators.
 - Changes to `.github/` in a branch, including this rubric, are flagged in the
   report for the owner's attention.
+- The reviewer runs the Claude Code CLI with a fixed tool allowlist and ignores a
+  branch's own `.claude/` settings and `.mcp.json`, so pushed code can't widen
+  what it is allowed to do.
