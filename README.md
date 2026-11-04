@@ -59,7 +59,7 @@ code/config/              planned default experiment configuration
 code/build/               generated executable, ignored by Git
 code/results/             generated output, ignored by Git
 docs/                     contracts, tasks and contribution records
-.github/                  CI and pull-request template
+.github/                  CI, review agent and pull-request template
 ```
 
 Start with [the team quickstart](docs/QUICKSTART.md),
