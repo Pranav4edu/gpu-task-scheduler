@@ -135,7 +135,8 @@ int run_self_tests(std::ostream& output) {
         catch(const std::exception& e){++failed;output<<"FAIL "<<test.first<<": "<<e.what()<<'\n';}
     }
     output<<tests.size()-failed<<'/'<<tests.size()<<" foundation tests passed\n";
-    output<<"Pending: deque, graph, hash table, parser, simulation and full-result tests.\n";
-    return failed==0?0:1;
+    const int engine_failed = run_engine_tests(output);
+    output<<"Pending integration: deque, graph, hash table, parser, production scheduler, metrics and full-result tests.\n";
+    return failed==0 && engine_failed==0 ? 0 : 1;
 }
 } // namespace gpu

@@ -19,6 +19,32 @@ All classes/functions are in namespace `gpu`. Use C++17. Template definitions go
 in headers. Non-template implementations go in `code/src/`. Keep one executable
 entry point in main.cpp; add tests to the shared test runner, not another main.
 
+## Independently testable engine (November 4)
+
+`gpu/simulator.hpp` adds `simulate_events(tasks, dependencies, ranks, config,
+scheduler, stats)` without changing `DirectedGraph`, `Scheduler` or the planned
+two-argument `simulate` API. `DependencyView` borrows the immutable indegree vector
+and a synchronous successor visitor; it owns no graph storage. The engine copies
+indegrees into per-run state. Graph and callback captures must outlive the call.
+See EVENT_ENGINE.md for the future production adapter and test-only call sites.
+
+Pass a fresh, empty scheduler configured for the same policy/distribution. It
+must return all assignments allowed by available work and idle units: central
+and stealing modes fill `min(ready tasks, idle units)` slots; static mode fills
+each idle unit whose owner queue is nonempty. A scheduler failure invalidates
+that scheduler instance; construct a new one before retrying. The engine checks
+assignment membership, uniqueness, bounds, ownership and work conservation;
+policy ordering and owner-first stealing remain the scheduler's responsibility.
+
+The engine canonicalizes returned assignments by unit ID. `TaskRecord.initial_owner`
+equals the first assigned unit in central mode and `TaskId % P` in local modes.
+In stealing mode, `stolen` must exactly match execution on a non-owner unit.
+CP needs one nonnegative rank per task; FIFO/SJF may omit ranks (keys receive 0).
+Graph/DAG and rank correctness are preprocessing responsibilities, not inferred
+from the engine's defensive checks. EngineStats holds event-heap counters plus
+timestamp, edge-visit, ready-task and dispatch counts; it resets per call and is
+published only on success.
+
 ## Data structures
 
 - **BinaryHeap** is implemented. `top()` returns a reference invalidated by heap

@@ -27,19 +27,24 @@ void foundation_demo() {
     std::ofstream status;
     status.exceptions(std::ios::failbit | std::ios::badbit);
     status.open("results/project_status.txt");
-    status<<"FOUNDATION CHECKPOINT - not a finished simulator\n"
-          <<"Implemented: binary heap, priority keys, shared types, foundation tests.\n"
-          <<"Pending: ring deque, graph, hash table, parser, engine, metrics, charts.\n"
+    status<<"ENGINE CHECKPOINT - not the integrated final simulator\n"
+          <<"Implemented: binary heap, priority keys, shared types, event engine, foundation and engine tests.\n"
+          <<"Pending integration: ring deque, graph, hash table, parser, production scheduler, metrics, charts.\n"
           <<"heap_event_demo.csv demonstrates heap order only. No benchmark claims.\n";
     status.close();
-    std::cout<<"Foundation demo written to code/results/. Simulator implementation is pending.\n";
+    std::cout<<"Heap demonstration written to code/results/.\n";
 }
 }
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string(argv[1])=="--self-test")return gpu::run_self_tests(std::cout);
         if(argc==2 && std::string(argv[1])=="--foundation-demo"){foundation_demo();return 0;}
-        std::cerr<<"Use root ./run.sh for the foundation build and tests.\n";
+        if(argc==2 && std::string(argv[1])=="--engine-checkpoint"){
+            gpu::write_engine_checkpoint("results");
+            std::cout<<"Isolated engine fixture trace written; production graph/scheduler integration is pending.\n";
+            return 0;
+        }
+        std::cerr<<"Use root ./run.sh for the checkpoint build and tests.\n";
         return 2;
     } catch(const std::exception& e) {std::cerr<<"Error: "<<e.what()<<'\n';return 1;}
 }

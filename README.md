@@ -5,11 +5,14 @@ compute units. No physical GPU or CUDA is required.
 
 ## Current checkpoint
 
-**Foundation only; not the finished course submission.** The custom binary heap,
-priority keys, shared types, build script and foundation tests are implemented.
-The other three data structures have declaration-only headers ready for their
-owners. The parser, dependency algorithms, scheduling engine, metrics and full
-experiment pipeline are still pending. No benchmark results are claimed.
+**Event-engine checkpoint; not the finished course submission.** The custom
+binary heap, priority keys, shared types, build script and event engine are
+implemented. Tests inject read-only graph fixtures and reference schedulers so
+Pranav's engine can be checked before the other modules arrive. Those substitutes
+live only in `code/tests/`; they do not implement teammates' production modules.
+The three remaining custom structures, parser, production scheduler, dependency
+algorithms, metrics and full experiment pipeline are pending. The public
+`simulate(ValidatedWorkload, RunConfig)` wrapper still awaits integration.
 
 ## Run
 
@@ -23,8 +26,13 @@ From the repository root:
 The script resolves its own location, compiles source and tests, stops on failure,
 and writes these files without arguments or network downloads:
 
-- `code/results/test_summary.txt`: results for the implemented foundation tests.
+- `code/results/test_summary.txt`: 11 foundation and 14 engine test groups,
+  including 960 seeded comparisons against an independent tick-based oracle.
 - `code/results/heap_event_demo.csv`: illustrative heap ordering, **not a schedule**.
+- `code/results/engine_fixture_trace.csv`: a real engine trace for the six-task
+  FIFO fixture, using a **test-only graph and scheduler**, not the CSV pipeline.
+- `code/results/engine_checkpoint.txt`: fixture makespan, busy ticks and engine
+  counters; not a full benchmark report.
 - `code/results/project_status.txt`: implemented and pending functionality.
 
 You may select a compiler with `CXX=clang++ ./run.sh`. GitHub Actions runs this same
@@ -48,7 +56,7 @@ allowed. These are team design decisions, not a claim about additional course ru
 ## Directory structure
 
 ```text
-run.sh                    argument-free build and foundation checks
+run.sh                    argument-free build, tests and checkpoint outputs
 code/include/gpu/         shared types, module contracts and ordering keys
 code/include/gpu/ds/      four custom data structure APIs
 code/src/                 current executable; implementation modules go here
@@ -65,6 +73,8 @@ docs/                     contracts, tasks and contribution records
 Start with [the team quickstart](docs/QUICKSTART.md),
 [shared contracts](docs/CONTRACTS.md), and [the task board](docs/TASKS.md).
 Record real implementation and review evidence in [contributions](docs/CONTRIBUTIONS.md).
+For Pranav's engine walkthrough and teammate handoffs, read
+[the event-engine guide](docs/EVENT_ENGINE.md).
 
 ## Milestones
 
@@ -76,4 +86,4 @@ Record real implementation and review evidence in [contributions](docs/CONTRIBUT
 - November 21-23: final integration; November 24-30: fixes, report and rehearsal.
 
 The final package is `Group4_Project.zip` with a report, dedicated code folder,
-root README and executable `run.sh`. This foundation alone is not submission-ready.
+root README and executable `run.sh`. This checkpoint alone is not submission-ready.

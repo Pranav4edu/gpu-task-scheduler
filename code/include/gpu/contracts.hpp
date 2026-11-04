@@ -16,7 +16,8 @@ struct Metrics {
     std::optional<double> utilization, busy_time_cv;
 };
 
-// Agreed module boundaries; these functions are not implemented in this checkpoint.
+// Integration boundaries. These wrappers remain unimplemented in this checkpoint;
+// the independently testable event engine is declared in gpu/simulator.hpp.
 ParsedInput parse_csv(const std::string& path); // Divyaa
 ValidatedWorkload validate_workload(ParsedInput input); // Shaswitha
 ValidatedWorkload load_and_validate(const std::string& path); // parser + DAG
