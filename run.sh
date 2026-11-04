@@ -18,3 +18,4 @@ else
     exit 1
 fi
 ./build/gpu_sim --foundation-demo
+./build/gpu_sim --engine-checkpoint

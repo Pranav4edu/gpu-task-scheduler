@@ -23,14 +23,16 @@ Suggested branch names: `feature/ring-deque`, `feature/directed-graph`,
 
 ## What you should see today
 
-The foundation tests pass and a heap-ordering demonstration is written. It is
-normal that no full simulation charts exist yet: the engine and three structures
-are pending. The declaration-only headers deliberately provide no STL fallback.
+The foundation and isolated engine tests pass. A six-task engine trace and a
+heap-ordering demonstration are written. The engine trace uses test-only graph
+and scheduler adapters; the production modules and charts are still pending.
+The declaration-only DS headers deliberately provide no STL fallback.
 
 ## First test cases by owner
 
-- Pranav: heap mixed-operation tests, event ordering, duration overflow; next,
-  batched arrivals/completions and exactly-once readiness.
+- Pranav: review the heap and event-engine implementation, trace a simultaneous
+  completion/arrival batch, and explain the tests in [EVENT_ENGINE.md](EVENT_ENGINE.md).
+  Next integration needs the graph and production scheduler implementations.
 - Aayush: wraparound, resize while wrapped, both-end operations, drain/refill;
   compare to std::deque only in tests.
 - Shaswitha: edge counts, indegrees, invalid endpoints, duplicate edges, cycles,
