@@ -1,0 +1,3 @@
+task_id,release_time,duration,dependencies
+A,0,1,B
+B,0,1,A

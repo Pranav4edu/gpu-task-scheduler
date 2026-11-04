@@ -1,0 +1,27 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compile, test and run the current checkpoint
+        run: ./run.sh
+      - name: Check memory and undefined behavior on Linux
+        if: runner.os == 'Linux'
+        run: |
+          c++ -std=c++17 -O1 -g -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Icode/include code/src/*.cpp code/tests/*.cpp \
+            -o code/build/gpu_sim_sanitized
+          ./code/build/gpu_sim_sanitized --self-test

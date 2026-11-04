@@ -1,0 +1,6 @@
+.DS_Store
+code/build/
+code/results/
+*.zip
+*.o
+*.dSYM/
