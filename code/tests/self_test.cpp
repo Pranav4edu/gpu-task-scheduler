@@ -12,6 +12,7 @@
 #include <ostream>
 #include <random>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace gpu {
@@ -102,6 +103,23 @@ void require_topological_order(const DirectedGraph& graph, const std::vector<Tas
             require(positions[from] < positions[to], "edge is not ordered predecessor-first");
         });
     }
+}
+ValidatedWorkload make_workload(const std::vector<Tick>& durations,
+                                const std::vector<EdgePair>& edges) {
+    ValidatedWorkload workload;
+    for (std::size_t task = 0; task < durations.size(); ++task)
+        workload.tasks.push_back({std::to_string(task), 0, durations[task]});
+    workload.graph = DirectedGraph::build(workload.tasks.size(), edges);
+    workload.topological_order = detail::topological_order(workload.graph);
+    return workload;
+}
+ParsedInput make_parsed_input(const std::vector<Tick>& durations,
+                              const std::vector<EdgePair>& edges) {
+    ParsedInput input;
+    for (std::size_t task = 0; task < durations.size(); ++task)
+        input.tasks.push_back({std::to_string(task), 0, durations[task]});
+    input.edges = edges;
+    return input;
 }
 } // namespace
 
@@ -248,6 +266,171 @@ int run_self_tests(std::ostream& output) {
             });
             const auto order = detail::topological_order(graph);
             require_topological_order(graph, order);
+        }},
+        {"critical-path ranks support an empty workload", [] {
+            const auto workload = make_workload({}, {});
+            require(detail::critical_path_ranks(workload).empty(),
+                    "empty workload produced ranks");
+        }},
+        {"critical-path rank for a single task is its duration", [] {
+            const auto workload = make_workload({5}, {});
+            require(detail::critical_path_ranks(workload) == std::vector<Tick>({5}),
+                    "single-task rank mismatch");
+        }},
+        {"critical-path ranks follow a chain", [] {
+            const auto workload = make_workload({2, 3, 4}, {{0, 1}, {1, 2}});
+            require(detail::critical_path_ranks(workload) ==
+                    std::vector<Tick>({9, 7, 4}), "chain ranks mismatch");
+        }},
+        {"critical-path ranks handle a fork and join", [] {
+            const auto workload = make_workload({2, 3, 5, 7},
+                {{0, 1}, {0, 2}, {1, 3}, {2, 3}});
+            require(detail::critical_path_ranks(workload) ==
+                    std::vector<Tick>({14, 10, 12, 7}), "fork-join ranks mismatch");
+        }},
+        {"critical-path ranks for independent tasks equal their durations", [] {
+            const auto workload = make_workload({4, 9, 1}, {});
+            require(detail::critical_path_ranks(workload) ==
+                    std::vector<Tick>({4, 9, 1}), "independent-task ranks mismatch");
+        }},
+        {"critical-path ranks select the longest-duration successor path", [] {
+            const auto workload = make_workload({1, 2, 9, 3},
+                {{0, 1}, {1, 3}, {0, 2}});
+            require(detail::critical_path_ranks(workload) ==
+                    std::vector<Tick>({10, 5, 9, 3}), "longest successor path mismatch");
+        }},
+        {"critical-path rank addition detects overflow", [] {
+            const Tick maximum = std::numeric_limits<Tick>::max();
+            const auto workload = make_workload({maximum, 1}, {{0, 1}});
+            throws<std::overflow_error>([&] { detail::critical_path_ranks(workload); });
+        }},
+        {"critical-path ranks match the six-task hand oracle", [] {
+            const auto workload = make_workload({2, 3, 6, 2, 4, 1},
+                {{0, 3}, {1, 3}, {2, 4}, {3, 5}, {4, 5}});
+            require(detail::critical_path_ranks(workload) ==
+                    std::vector<Tick>({5, 6, 11, 3, 5, 1}),
+                    "six-task critical-path ranks mismatch");
+        }},
+        {"critical-path ranking preserves indegrees and task records", [] {
+            const auto workload = make_workload({2, 3, 6, 2, 4, 1},
+                {{0, 3}, {1, 3}, {2, 4}, {3, 5}, {4, 5}});
+            const auto original_indegrees = workload.graph.indegrees();
+            const auto original_tasks = workload.tasks;
+            detail::critical_path_ranks(workload);
+            require(workload.graph.indegrees() == original_indegrees,
+                    "critical-path ranking changed original indegrees");
+            require(workload.tasks.size() == original_tasks.size(),
+                    "critical-path ranking changed task count");
+            for (std::size_t task = 0; task < workload.tasks.size(); ++task) {
+                require(workload.tasks[task].external_id == original_tasks[task].external_id &&
+                        workload.tasks[task].release == original_tasks[task].release &&
+                        workload.tasks[task].duration == original_tasks[task].duration,
+                        "critical-path ranking changed a task record");
+            }
+        }},
+        {"workload validation supports empty input", [] {
+            const auto workload = validate_workload({});
+            require(workload.tasks.empty() && workload.graph.vertex_count() == 0 &&
+                    workload.graph.edge_count() == 0 &&
+                    workload.topological_order.empty() && workload.critical_ranks.empty(),
+                    "empty workload result mismatch");
+        }},
+        {"workload validation handles a single task", [] {
+            ParsedInput input;
+            input.tasks.push_back({"only", 3, 7});
+            const auto workload = validate_workload(std::move(input));
+            require(workload.tasks.size() == 1 &&
+                    workload.tasks[0].external_id == "only" &&
+                    workload.tasks[0].release == 3 && workload.tasks[0].duration == 7,
+                    "single task was not preserved");
+            require(workload.topological_order == std::vector<TaskId>({0}) &&
+                    workload.critical_ranks == std::vector<Tick>({7}),
+                    "single-task DAG metadata mismatch");
+        }},
+        {"workload validation handles independent tasks", [] {
+            const auto workload = validate_workload(make_parsed_input({3, 5, 1}, {}));
+            require(workload.tasks[0].external_id == "0" &&
+                    workload.tasks[1].external_id == "1" &&
+                    workload.tasks[2].external_id == "2",
+                    "workload validation changed task order");
+            require(workload.topological_order == std::vector<TaskId>({0, 1, 2}) &&
+                    workload.critical_ranks == std::vector<Tick>({3, 5, 1}),
+                    "independent-task DAG metadata mismatch");
+        }},
+        {"workload validation handles a chain", [] {
+            const auto workload = validate_workload(
+                make_parsed_input({2, 3, 4}, {{0, 1}, {1, 2}}));
+            require(workload.topological_order == std::vector<TaskId>({0, 1, 2}) &&
+                    workload.critical_ranks == std::vector<Tick>({9, 7, 4}),
+                    "chain DAG metadata mismatch");
+        }},
+        {"workload validation handles a fork and join", [] {
+            const auto workload = validate_workload(make_parsed_input(
+                {2, 3, 5, 7}, {{0, 1}, {0, 2}, {1, 3}, {2, 3}}));
+            require_topological_order(workload.graph, workload.topological_order);
+            require(workload.critical_ranks == std::vector<Tick>({14, 10, 12, 7}),
+                    "fork-join ranks mismatch");
+        }},
+        {"workload validation matches the six-task rank oracle", [] {
+            const auto workload = validate_workload(make_parsed_input(
+                {2, 3, 6, 2, 4, 1},
+                {{0, 3}, {1, 3}, {2, 4}, {3, 5}, {4, 5}}));
+            require(workload.critical_ranks == std::vector<Tick>({5, 6, 11, 3, 5, 1}),
+                    "six-task ranks mismatch");
+            require_topological_order(workload.graph, workload.topological_order);
+        }},
+        {"workload validation rejects a negative release", [] {
+            ParsedInput input;
+            input.tasks.push_back({"negative-release", -1, 1});
+            throws<std::invalid_argument>([&] { validate_workload(std::move(input)); });
+        }},
+        {"workload validation rejects zero and negative durations", [] {
+            ParsedInput zero_duration;
+            zero_duration.tasks.push_back({"zero-duration", 0, 0});
+            throws<std::invalid_argument>([&] { validate_workload(std::move(zero_duration)); });
+            ParsedInput negative_duration;
+            negative_duration.tasks.push_back({"negative-duration", 0, -1});
+            throws<std::invalid_argument>([&] { validate_workload(std::move(negative_duration)); });
+        }},
+        {"workload validation rejects invalid edge endpoints", [] {
+            throws<std::invalid_argument>([] {
+                validate_workload(make_parsed_input({1, 1}, {{2, 0}}));
+            });
+            throws<std::invalid_argument>([] {
+                validate_workload(make_parsed_input({1, 1}, {{0, 2}}));
+            });
+        }},
+        {"workload validation rejects duplicate edges", [] {
+            throws<std::invalid_argument>([] {
+                validate_workload(make_parsed_input({1, 1}, {{0, 1}, {0, 1}}));
+            });
+        }},
+        {"workload validation rejects self-edges", [] {
+            throws<std::invalid_argument>([] {
+                validate_workload(make_parsed_input({1}, {{0, 0}}));
+            });
+        }},
+        {"workload validation rejects simple and disconnected cycles", [] {
+            throws<std::invalid_argument>([] {
+                validate_workload(make_parsed_input({1, 1}, {{0, 1}, {1, 0}}));
+            });
+            throws<std::invalid_argument>([] {
+                validate_workload(make_parsed_input(
+                    {1, 1, 1, 1}, {{0, 1}, {2, 3}, {3, 2}}));
+            });
+        }},
+        {"workload validation propagates critical-rank overflow", [] {
+            const Tick maximum = std::numeric_limits<Tick>::max();
+            throws<std::overflow_error>([&] {
+                validate_workload(make_parsed_input({maximum, 1}, {{0, 1}}));
+            });
+        }},
+        {"workload validation preserves original graph indegrees", [] {
+            const auto workload = validate_workload(make_parsed_input(
+                {2, 3, 4, 5}, {{0, 2}, {1, 2}, {2, 3}}));
+            require(workload.graph.indegrees() ==
+                    std::vector<std::size_t>({0, 0, 2, 1}),
+                    "validation changed original graph indegrees");
         }}
     };
     std::size_t failed=0;
@@ -256,7 +439,7 @@ int run_self_tests(std::ostream& output) {
         catch(const std::exception& e){++failed;output<<"FAIL "<<test.first<<": "<<e.what()<<'\n';}
     }
     output<<tests.size()-failed<<'/'<<tests.size()<<" foundation tests passed\n";
-    output<<"Pending: deque, hash table, parser, critical-path ranks, simulation and full-result tests.\n";
+    output<<"Pending: deque, hash table, CSV parser, load_and_validate, simulation and full-result tests.\n";
     return failed==0?0:1;
 }
 } // namespace gpu

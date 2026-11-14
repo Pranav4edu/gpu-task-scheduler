@@ -46,5 +46,41 @@ std::vector<TaskId> topological_order(const DirectedGraph& graph) {
     }
     return order;
 }
+
+std::vector<Tick> critical_path_ranks(const ValidatedWorkload& workload) {
+    const std::size_t vertex_count = workload.graph.vertex_count();
+    if (workload.tasks.size() != vertex_count ||
+        workload.topological_order.size() != vertex_count)
+        throw std::logic_error("validated workload dimensions are inconsistent");
+
+    std::vector<std::size_t> positions(vertex_count, no_edge);
+    for (std::size_t index = 0; index < workload.topological_order.size(); ++index) {
+        const TaskId task = workload.topological_order[index];
+        if (task >= vertex_count || positions[task] != no_edge)
+            throw std::logic_error("validated workload has an invalid topological order");
+        positions[task] = index;
+    }
+    for (TaskId from = 0; from < vertex_count; ++from) {
+        workload.graph.for_each_successor(from, [&](TaskId to) {
+            if (positions[from] >= positions[to])
+                throw std::logic_error("topological order violates an edge dependency");
+        });
+    }
+
+    std::vector<Tick> ranks(vertex_count, 0);
+    for (std::size_t index = workload.topological_order.size(); index > 0; --index) {
+        const TaskId task = workload.topological_order[index - 1];
+        const Tick duration = workload.tasks[task].duration;
+        if (duration <= 0) throw std::invalid_argument("task durations must be positive");
+
+        Tick longest_successor_rank = 0;
+        workload.graph.for_each_successor(task, [&](TaskId successor) {
+            if (ranks[successor] > longest_successor_rank)
+                longest_successor_rank = ranks[successor];
+        });
+        ranks[task] = checked_add(duration, longest_successor_rank);
+    }
+    return ranks;
+}
 } // namespace detail
 } // namespace gpu
