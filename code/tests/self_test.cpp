@@ -13,6 +13,7 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace gpu {
@@ -120,6 +121,17 @@ ParsedInput make_parsed_input(const std::vector<Tick>& durations,
         input.tasks.push_back({std::to_string(task), 0, durations[task]});
     input.edges = edges;
     return input;
+}
+TaskRecord make_task_record(TaskId task, Tick ready, Tick start, Tick finish, UnitId unit) {
+    return {task, ready, start, finish, unit, unit, false};
+}
+RunResult make_run_result(std::vector<TaskRecord> tasks, std::vector<Tick> busy_ticks,
+                          Tick makespan) {
+    RunResult result;
+    result.tasks = std::move(tasks);
+    result.busy_ticks = std::move(busy_ticks);
+    result.makespan = makespan;
+    return result;
 }
 } // namespace
 
@@ -431,6 +443,185 @@ int run_self_tests(std::ostream& output) {
             require(workload.graph.indegrees() ==
                     std::vector<std::size_t>({0, 0, 2, 1}),
                     "validation changed original graph indegrees");
+        }},
+        {"result verifier accepts an empty workload", [] {
+            const auto workload = validate_workload({});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({}, {0, 0}, 0);
+            verify_result(workload, config, result);
+        }},
+        {"result verifier accepts one valid task", [] {
+            const auto workload = make_workload({2}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 2, 1)}, {0, 2}, 2);
+            verify_result(workload, config, result);
+        }},
+        {"result verifier accepts a valid chain", [] {
+            const auto workload = make_workload({2, 3}, {{0, 1}});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 2, 2, 5, 1)
+            }, {2, 3}, 5);
+            verify_result(workload, config, result);
+        }},
+        {"result verifier accepts a valid fork and join", [] {
+            const auto workload = make_workload({2, 1, 1, 2},
+                {{0, 1}, {0, 2}, {1, 3}, {2, 3}});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 2, 2, 3, 0),
+                make_task_record(2, 2, 2, 3, 1),
+                make_task_record(3, 3, 3, 5, 0)
+            }, {5, 1}, 5);
+            verify_result(workload, config, result);
+        }},
+        {"result verifier accepts independent tasks on different units", [] {
+            const auto workload = make_workload({2, 3}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 0, 0, 3, 1)
+            }, {2, 3}, 3);
+            verify_result(workload, config, result);
+        }},
+        {"result verifier accepts adjacent intervals on one unit", [] {
+            const auto workload = make_workload({2, 3}, {});
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 0, 2, 5, 0)
+            }, {5}, 5);
+            verify_result(workload, config, result);
+        }},
+        {"result verifier accepts simultaneous completion and release", [] {
+            ParsedInput input;
+            input.tasks = {{"first", 0, 2}, {"released-at-completion", 2, 1}};
+            const auto workload = validate_workload(std::move(input));
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 2, 2, 3, 0)
+            }, {3}, 3);
+            verify_result(workload, config, result);
+        }},
+        {"result verifier rejects a missing task record", [] {
+            const auto workload = make_workload({1, 1}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 1, 0)}, {1, 0}, 1);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects an extra task record", [] {
+            const auto workload = make_workload({1}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 1, 0),
+                make_task_record(1, 0, 0, 1, 1)
+            }, {1, 1}, 1);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects duplicate and incorrect task IDs", [] {
+            const auto workload = make_workload({1, 1}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto duplicate = make_run_result({
+                make_task_record(0, 0, 0, 1, 0),
+                make_task_record(0, 0, 0, 1, 1)
+            }, {1, 1}, 1);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, duplicate); });
+            const auto incorrect = make_run_result({
+                make_task_record(1, 0, 0, 1, 0),
+                make_task_record(0, 0, 0, 1, 1)
+            }, {1, 1}, 1);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, incorrect); });
+        }},
+        {"result verifier rejects an invalid unit ID", [] {
+            const auto workload = make_workload({1}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 1, 2)}, {1, 0}, 1);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects negative timestamps", [] {
+            const auto workload = make_workload({2}, {});
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            auto result = make_run_result({make_task_record(0, 0, 0, 2, 0)}, {2}, 2);
+            result.tasks[0].ready = -1;
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+            result.tasks[0] = make_task_record(0, 0, 0, 2, 0);
+            result.tasks[0].start = -1;
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+            result.tasks[0] = make_task_record(0, 0, 0, 2, 0);
+            result.tasks[0].finish = -1;
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects an incorrect ready time", [] {
+            ParsedInput input;
+            input.tasks.push_back({"released-later", 2, 1});
+            const auto workload = validate_workload(std::move(input));
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 1, 2, 3, 0)}, {1}, 3);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects a start before release", [] {
+            ParsedInput input;
+            input.tasks.push_back({"released-at-three", 3, 2});
+            const auto workload = validate_workload(std::move(input));
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 3, 2, 4, 0)}, {2}, 4);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects a start before predecessor completion", [] {
+            const auto workload = make_workload({2, 1}, {{0, 1}});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 2, 1, 2, 1)
+            }, {2, 1}, 2);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects an incorrect task duration", [] {
+            const auto workload = make_workload({2}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 3, 0)}, {2, 0}, 3);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects overlapping intervals", [] {
+            const auto workload = make_workload({3, 2}, {});
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 3, 0),
+                make_task_record(1, 0, 2, 4, 0)
+            }, {5}, 4);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects incorrect busy ticks", [] {
+            const auto workload = make_workload({2}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 2, 0)}, {1, 0}, 2);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects an incorrect busy-tick vector size", [] {
+            const auto workload = make_workload({2}, {});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 2, 0)}, {2}, 2);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects an incorrect makespan", [] {
+            const auto workload = make_workload({2}, {});
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 2, 0)}, {2}, 3);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier detects timestamp overflow", [] {
+            const Tick maximum = std::numeric_limits<Tick>::max();
+            ParsedInput input;
+            input.tasks.push_back({"overflow", 2, maximum - 1});
+            const auto workload = validate_workload(std::move(input));
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 2, 2, maximum, 0)
+            }, {maximum - 1}, maximum);
+            throws<std::overflow_error>([&] { verify_result(workload, config, result); });
         }}
     };
     std::size_t failed=0;
