@@ -8,17 +8,17 @@ that student's independently completed work.
 | --- | --- | --- | --- |
 | Shared APIs and event/CSV rules | All; Pranav coordinates | 1 | Draft contracts in this PR, team review pending |
 | Custom binary heap and tests | Pranav | 4 | AI-assisted starter implemented; owner review pending |
-| Custom ring deque and tests | Aayush | 4 | Header contract only |
+| Custom ring deque and tests | Aayush | 4 | AI-assisted implementation and 8 passing tests; owner review pending |
 | Custom adjacency graph and tests | Shaswitha | 4 | Header contract only |
 | Custom hash table and tests | Divyaa | 4 | Header contract only |
 | Parser plus DAG validation/ranks | Divyaa + Shaswitha | 6 | Pending; fixtures supplied |
-| Engine plus centralized FIFO | Pranav + Aayush | 8 | Pending |
+| Engine plus centralized FIFO | Pranav + Aayush | 8 | Aayush's central FIFO scheduler done (AI-assisted, review pending); engine pending |
 | Baseline using all four custom structures | All | 8 | Pending |
-| Central SJF/CP integration | Aayush + Pranav | 12 | Comparator helpers only |
+| Central SJF/CP integration | Aayush + Pranav | 12 | Aayush's SJF/CP schedulers done and oracle-tested (AI-assisted, review pending); engine integration pending |
 | Independent trace validator | Shaswitha | 12 | Pending |
 | Metrics and hand-oracle comparison | Divyaa | 12 | Pending |
-| Static queues, saved workloads and basic charts | Shared | 16 | Pending |
-| Optional stealing decision | Aayush + Pranav | 16 | Deferred until required baseline passes |
+| Static queues, saved workloads and basic charts | Shared | 16 | Aayush's static FIFO scheduler, factory and chart/CSV export and owner-skew fixtures done (AI-assisted, review pending); other workload families pending |
+| Optional stealing decision | Aayush + Pranav | 16 | Stealing scheduler implemented and unit-tested (AI-assisted, review pending); inclusion decision waits for engine trace validation |
 | Required implementation merged | All | 20 | Pending |
 | Full integration and first extraction check | All | 23 | Pending |
 | Measured report and presentation rehearsal | All | 24-29 | Pending |

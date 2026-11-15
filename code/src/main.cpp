@@ -1,6 +1,7 @@
 #include "gpu/ds/binary_heap.hpp"
 #include "gpu/priority.hpp"
 #include "gpu/self_test.hpp"
+#include "gpu/workloads.hpp"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -28,8 +29,8 @@ void foundation_demo() {
     status.exceptions(std::ios::failbit | std::ios::badbit);
     status.open("results/project_status.txt");
     status<<"FOUNDATION CHECKPOINT - not a finished simulator\n"
-          <<"Implemented: binary heap, priority keys, shared types, foundation tests.\n"
-          <<"Pending: ring deque, graph, hash table, parser, engine, metrics, charts.\n"
+          <<"Implemented: binary heap, ring deque, schedulers (central FIFO/SJF/CP, static, stealing), export, owner-skew workloads, unit tests.\n"
+          <<"Pending: graph, hash table, parser, engine, metrics, trace validator, full pipeline.\n"
           <<"heap_event_demo.csv demonstrates heap order only. No benchmark claims.\n";
     status.close();
     std::cout<<"Foundation demo written to code/results/. Simulator implementation is pending.\n";
@@ -39,6 +40,11 @@ int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string(argv[1])=="--self-test")return gpu::run_self_tests(std::cout);
         if(argc==2 && std::string(argv[1])=="--foundation-demo"){foundation_demo();return 0;}
+        if(argc==2 && std::string(argv[1])=="--write-skew-workloads"){ // developer tool, not part of run.sh
+            gpu::write_owner_skew_fixtures("data/workloads");
+            std::cout<<"Wrote owner-skew workloads to data/workloads/\n";
+            return 0;
+        }
         std::cerr<<"Use root ./run.sh for the foundation build and tests.\n";
         return 2;
     } catch(const std::exception& e) {std::cerr<<"Error: "<<e.what()<<'\n';return 1;}

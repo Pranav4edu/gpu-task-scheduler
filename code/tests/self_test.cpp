@@ -84,7 +84,7 @@ void policy_keys() {
 } // namespace
 
 int run_self_tests(std::ostream& output) {
-    const std::vector<std::pair<const char*, std::function<void()>>> tests = {
+    std::vector<std::pair<const char*, std::function<void()>>> tests = {
         {"heap rejects empty top and pop", [] {
             BinaryHeap<int> h; throws<std::underflow_error>([&]{h.top();});
             throws<std::underflow_error>([&]{h.pop();});
@@ -129,13 +129,21 @@ int run_self_tests(std::ostream& output) {
             throws<std::invalid_argument>([]{validate_config({2,static_cast<Policy>(99),Distribution::central});});
         }}
     };
+    for (auto& t : ring_deque_tests()) tests.push_back(std::move(t));
+    for (auto& t : scheduler_tests()) tests.push_back(std::move(t));
+    for (auto& t : policy_tests()) tests.push_back(std::move(t));
+    for (auto& t : static_scheduler_tests()) tests.push_back(std::move(t));
+    for (auto& t : export_tests()) tests.push_back(std::move(t));
+    for (auto& t : workload_tests()) tests.push_back(std::move(t));
+    for (auto& t : stealing_tests()) tests.push_back(std::move(t));
+    for (auto& t : ds_metrics_tests()) tests.push_back(std::move(t));
     std::size_t failed=0;
     for(const auto& test:tests){
         try {test.second();output<<"PASS "<<test.first<<'\n';}
         catch(const std::exception& e){++failed;output<<"FAIL "<<test.first<<": "<<e.what()<<'\n';}
     }
     output<<tests.size()-failed<<'/'<<tests.size()<<" foundation tests passed\n";
-    output<<"Pending: deque, graph, hash table, parser, simulation and full-result tests.\n";
+    output<<"Pending: graph, hash table, parser, simulation and full-result tests.\n";
     return failed==0?0:1;
 }
 } // namespace gpu

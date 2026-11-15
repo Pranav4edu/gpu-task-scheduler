@@ -7,8 +7,9 @@ compute units. No physical GPU or CUDA is required.
 
 **Foundation only; not the finished course submission.** The custom binary heap,
 priority keys, shared types, build script and foundation tests are implemented.
-The other three data structures have declaration-only headers ready for their
-owners. The parser, dependency algorithms, scheduling engine, metrics and full
+The ring deque, central FIFO/SJF/CP, static round-robin and work-stealing schedulers, CSV/SVG export, data-structure counters and owner-skew fixtures, with unit tests, are implemented (AI-assisted, owner review
+pending). The other two data structures have declaration-only headers ready for
+their owners. The parser, dependency algorithms, scheduling engine, metrics and full
 experiment pipeline are still pending. No benchmark results are claimed.
 
 ## Run
@@ -26,6 +27,11 @@ and writes these files without arguments or network downloads:
 - `code/results/test_summary.txt`: results for the implemented foundation tests.
 - `code/results/heap_event_demo.csv`: illustrative heap ordering, **not a schedule**.
 - `code/results/project_status.txt`: implemented and pending functionality.
+
+On Windows, run this from Git Bash (or WSL), not PowerShell, with a C++17
+compiler such as MSYS2 g++ on PATH. Be inside the project folder first:
+`cd gpu-task-scheduler && sh run.sh`. On these shells `run.sh` links statically,
+because Git Bash can otherwise load an older `libstdc++-6.dll` and crash.
 
 You may select a compiler with `CXX=clang++ ./run.sh`. GitHub Actions runs this same
 entry point on Linux and macOS. The final version must extend the pipeline to
@@ -55,6 +61,7 @@ code/src/                 current executable; implementation modules go here
 code/tests/               tests compiled into the executable
 code/data/fixtures/       valid and invalid workload inputs
 code/data/expected/       hand-calculated test oracles, not measured output
+code/data/workloads/      saved owner-skew workload CSVs (12) and their generator settings
 code/config/              planned default experiment configuration
 code/build/               generated executable, ignored by Git
 code/results/             generated output, ignored by Git
@@ -62,7 +69,7 @@ docs/                     contracts, tasks and contribution records
 .github/                  CI and pull-request template
 ```
 
-Start with [the team quickstart](docs/QUICKSTART.md),
+Start with [the team quickstart](docs/QUICKSTART.md), [the scheduler/export integration guide](docs/INTEGRATION_AAYUSH.md),
 [shared contracts](docs/CONTRACTS.md), and [the task board](docs/TASKS.md).
 Record real implementation and review evidence in [contributions](docs/CONTRIBUTIONS.md).
 
