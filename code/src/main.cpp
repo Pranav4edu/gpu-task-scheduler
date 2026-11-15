@@ -1,6 +1,7 @@
 #include "gpu/ds/binary_heap.hpp"
 #include "gpu/priority.hpp"
 #include "gpu/self_test.hpp"
+#include "gpu/workloads.hpp"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -28,8 +29,8 @@ void foundation_demo() {
     status.exceptions(std::ios::failbit | std::ios::badbit);
     status.open("results/project_status.txt");
     status<<"GRAPH + ENGINE CHECKPOINT - not the integrated final simulator\n"
-          <<"Implemented: heap, graph/DAG, workload validation, trace verifier, DAG generators and event engine.\n"
-          <<"Pending integration: ring deque, hash table, parser, production scheduler, metrics, charts.\n"
+          <<"Implemented: heap, ring deque, schedulers (central FIFO/SJF/CP, static, stealing), export, owner-skew workloads, graph/DAG, workload validation, trace verifier, DAG generators and event engine.\n"
+          <<"Pending integration: hash table, parser, metrics, full run pipeline.\n"
           <<"heap_event_demo.csv demonstrates heap order only. No benchmark claims.\n";
     status.close();
     std::cout<<"Heap demonstration written to code/results/.\n";
@@ -41,7 +42,12 @@ int main(int argc,char** argv) {
         if(argc==2 && std::string(argv[1])=="--foundation-demo"){foundation_demo();return 0;}
         if(argc==2 && std::string(argv[1])=="--engine-checkpoint"){
             gpu::write_engine_checkpoint("results");
-            std::cout<<"Real graph + engine trace verified; production scheduler and CSV pipeline are pending.\n";
+            std::cout<<"Real graph + engine trace verified with test-only schedulers; production schedulers are covered by the integration tests; the CSV pipeline is pending.\n";
+            return 0;
+        }
+        if(argc==2 && std::string(argv[1])=="--write-skew-workloads"){ // developer tool, not part of run.sh
+            gpu::write_owner_skew_fixtures("data/workloads");
+            std::cout<<"Wrote owner-skew workloads to data/workloads/\n";
             return 0;
         }
         std::cerr<<"Use root ./run.sh for the checkpoint build and tests.\n";
