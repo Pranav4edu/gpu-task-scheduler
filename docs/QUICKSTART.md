@@ -23,16 +23,16 @@ Suggested branch names: `feature/ring-deque`, `feature/directed-graph`,
 
 ## What you should see today
 
-The foundation and isolated engine tests pass. A six-task engine trace and a
-heap-ordering demonstration are written. The engine trace uses test-only graph
-and scheduler adapters; the production modules and charts are still pending.
+The foundation, graph and engine tests run together. A six-task engine trace and
+heap-ordering demonstration are written. The trace now uses Shaswitha's real
+graph/validator and a test-only scheduler; the CSV pipeline and charts are pending.
 The declaration-only DS headers deliberately provide no STL fallback.
 
 ## First test cases by owner
 
 - Pranav: review the heap and event-engine implementation, trace a simultaneous
   completion/arrival batch, and explain the tests in [EVENT_ENGINE.md](EVENT_ENGINE.md).
-  Next integration needs the graph and production scheduler implementations.
+  Graph integration is connected here; next integration needs the production scheduler.
 - Aayush: wraparound, resize while wrapped, both-end operations, drain/refill;
   compare to std::deque only in tests.
 - Shaswitha: edge counts, indegrees, invalid endpoints, duplicate edges, cycles,

@@ -16,8 +16,9 @@ struct Metrics {
     std::optional<double> utilization, busy_time_cv;
 };
 
-// Integration boundaries. These wrappers remain unimplemented in this checkpoint;
-// the independently testable event engine is declared in gpu/simulator.hpp.
+// validate_workload and verify_result are implemented by the graph module.
+// Parsing, metrics and the two-argument simulate wrapper remain pending.
+// simulate_with_scheduler in gpu/simulator.hpp connects the graph and engine.
 ParsedInput parse_csv(const std::string& path); // Divyaa
 ValidatedWorkload validate_workload(ParsedInput input); // Shaswitha
 ValidatedWorkload load_and_validate(const std::string& path); // parser + DAG

@@ -32,10 +32,16 @@ struct EngineStats {
 // Runtime state and heap counters are fresh per call. On failure, discard the
 // scheduler (it may have consumed queue entries). stats is zeroed on entry and
 // populated only on success. The two-argument simulate wrapper remains an
-// integration task until the real graph and scheduler implementations are ready.
+// integration task until the production scheduler can be constructed.
 RunResult simulate_events(const std::vector<TaskSpec>& tasks,
                           const DependencyView& dependencies,
                           const std::vector<Tick>& critical_ranks,
                           const RunConfig& config, Scheduler& scheduler,
                           EngineStats* stats = nullptr);
+
+// Production graph adapter; scheduler construction remains the caller's job.
+// Borrows the validated graph only for the duration of this call.
+RunResult simulate_with_scheduler(const ValidatedWorkload& workload,
+                                 const RunConfig& config, Scheduler& scheduler,
+                                 EngineStats* stats = nullptr);
 } // namespace gpu

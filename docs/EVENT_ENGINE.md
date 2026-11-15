@@ -1,8 +1,9 @@
 # Pranav's event engine: walkthrough and handoff
 
-The engine is implemented and tested independently as of November 4, 2026.
+The engine was implemented in isolation on November 4. This November 14
+integration branch now connects Shaswitha's real graph and trace validator.
 It uses the custom binary heap already merged in the foundation. The normal
-grading pipeline still needs the other three custom structures and production
+grading pipeline still needs the deque, hash table, parser and production
 scheduler. The code is AI-assisted; review it and be able to explain it before
 claiming your contribution is complete.
 
@@ -45,7 +46,8 @@ completions and arrivals produces one readiness batch before dispatch.
 
 Run `./run.sh`. Open `code/results/engine_fixture_trace.csv` and
 `code/results/engine_checkpoint.txt`. Both are regenerated, ignored by Git and
-explicitly labeled as an isolated engine fixture, not the complete CSV pipeline.
+explicitly labeled as a real graph/engine check with a test-only scheduler,
+not the complete CSV pipeline. Shaswitha's verifier checks the generated trace.
 
 | Time | What the engine does |
 | --- | --- |
@@ -65,11 +67,11 @@ that Aayush's production FIFO/SJF/CP implementations are finished.
 
 ## What we need from teammates
 
-Nothing blocks this isolated engine checkpoint. The next integration needs:
+The graph handoff is implemented on this integration branch. Remaining handoffs:
 
 | Owner | Required handoff | What can happen before then |
 | --- | --- | --- |
-| Shaswitha | `DirectedGraph::indegrees()` and synchronous `for_each_successor`, validated DAG and CP ranks. The templated traversal definition must be visible in the header. | Run engine tests against `FixtureGraph`; no substitute production graph is supplied. |
+| Shaswitha | Real graph, validated DAG, ranks and trace verification are connected. Peer review remains pending. | Compare real graph runs with fixture/oracle results. |
 | Aayush | A concrete `Scheduler`, configured per run, with `enqueue_ready` and `dispatch`, using the custom deque/heap as planned. | Use test-only reference or scripted assignments. |
 | Divyaa | Parsed task records/edges; later metrics from `RunResult`. | Use in-memory tasks and already hand-calculated expected traces. |
 
@@ -77,8 +79,8 @@ The existing graph/scheduler signatures remain intact. Ask their owners to revie
 the additive adapter, work-conservation rule and `initial_owner` meaning in
 CONTRACTS.md when they integrate. No message has been sent on their behalf.
 
-Once Shaswitha's graph and Aayush's scheduler are implemented, the adapter body
-looks like this (integration example, not currently compiled production code):
+`simulate_with_scheduler` now implements this adapter in `simulator.cpp`.
+The equivalent structure is shown below; the caller supplies the scheduler:
 
 ```cpp
 RunResult run_with_scheduler(const ValidatedWorkload& workload,
@@ -100,17 +102,20 @@ use all four custom structures in the real default pipeline.
 
 ## Verification and limits
 
-The standard run includes 11 heap/foundation tests and 14 engine test groups.
+The combined run includes 82 foundation/graph tests and 18 engine/integration
+groups. The original isolated engine groups remain included.
 Engine coverage includes hand traces, simultaneous arrivals/completions, joins,
 late releases, FIFO waiting order, idle units, repeated runs, Tick overflow,
 invalid assignments, static ownership, metadata errors and a scripted steal.
 The scripted steal tests only engine accounting, not a work-stealing algorithm.
 
-One group runs 960 comparisons: 80 deterministic random DAGs, three unit counts
+One group runs 960 fixture-graph and 960 real-graph comparisons: 80 deterministic random DAGs, three unit counts
 and four configurations (central FIFO/SJF/CP and static FIFO). IDs are permuted
 away from topological order and adjacency insertion order is reversed. The
 independent oracle advances one tick at a time and scans predecessor records;
 it does not reuse the heap, readiness counters or production comparators.
+The real graph runs also pass Shaswitha's verifier. Another group checks 72
+combinations of her chain, fork-join and layered generators with the engine.
 
 Graph validity and CP-rank computation are preprocessing responsibilities. The
 engine catches many malformed metadata cases but does not replace Shaswitha's
@@ -138,4 +143,4 @@ Trace the six-task example by hand, then explain why dispatch waits until the
 whole timestamp is processed. Locate the predecessor-count copy, deduplication
 flags, checked finish addition and duplicate-assignment checks. Run the tests,
 review the draft PR, and have Aayush review the engine boundary. Next, replace
-test-only dependencies at the production call site when the actual modules land.
+the test-only scheduler at the production call site when Aayush's module lands.

@@ -5,6 +5,22 @@
 #include <stdexcept>
 
 namespace gpu {
+RunResult simulate_with_scheduler(const ValidatedWorkload& workload,
+                                 const RunConfig& config, Scheduler& scheduler,
+                                 EngineStats* stats) {
+    if (stats) *stats = {};
+    if (workload.graph.vertex_count() != workload.tasks.size())
+        throw std::invalid_argument("graph vertex count does not match tasks");
+    const DependencyView dependencies{
+        workload.graph.indegrees(),
+        [&workload](TaskId task, const SuccessorVisitor& visit) {
+            workload.graph.for_each_successor(task, visit);
+        }
+    };
+    return simulate_events(workload.tasks, dependencies, workload.critical_ranks,
+                           config, scheduler, stats);
+}
+
 RunResult simulate_events(const std::vector<TaskSpec>& tasks,
                           const DependencyView& dependencies,
                           const std::vector<Tick>& critical_ranks,

@@ -1,5 +1,6 @@
 #include "gpu/simulator.hpp"
 #include "gpu/self_test.hpp"
+#include "gpu/workload_generators.hpp"
 #include <algorithm>
 #include <fstream>
 #include <functional>
@@ -118,6 +119,8 @@ void same_result(const RunResult& got, const RunResult& expected) {
 void six_task_oracles() {
     FixtureGraph graph(6, six_edges);
     const auto original = graph.degrees;
+    const auto workload = validate_workload({six_tasks,six_edges});
+    require(workload.critical_ranks == six_ranks, "real DAG ranks differ from hand oracle");
     for (Policy policy : {Policy::fifo, Policy::shortest_job_first, Policy::critical_path}) {
         RunConfig config{2,policy,Distribution::central};
         ReferenceScheduler scheduler(config);
@@ -137,6 +140,15 @@ void six_task_oracles() {
         require(graph.degrees == original, "engine mutated graph indegrees");
         ReferenceScheduler again(config);
         same_result(simulate_events(six_tasks, graph.view(), six_ranks, config, again), got);
+        ReferenceScheduler real_scheduler(config);
+        EngineStats real_stats;
+        const auto real = simulate_with_scheduler(workload,config,real_scheduler,&real_stats);
+        same_result(real,expected);
+        verify_result(workload,config,real);
+        require(real_stats.successor_visits==workload.graph.edge_count(), "real graph edge accounting mismatch");
+        require(workload.graph.indegrees()==original, "real graph indegrees changed");
+        ReferenceScheduler real_again(config);
+        same_result(simulate_with_scheduler(workload,config,real_again),real);
     }
 }
 
@@ -221,12 +233,21 @@ void randomized_differential() {
         // Reverse adjacency insertion to ensure candidate order cannot leak into FIFO.
         std::reverse(edges.begin(),edges.end());
         FixtureGraph graph(count,edges);
+        const auto workload=validate_workload({tasks,edges});
+        require(workload.critical_ranks==ranks, "random real graph ranks differ from independent ranks");
+        require(workload.graph.indegrees()==graph.degrees, "random real graph indegrees mismatch");
         for (std::size_t units : {1u,2u,3u}) {
             for (int mode = 0; mode < 4; ++mode) {
                 RunConfig config{units,mode == 1 ? Policy::shortest_job_first : mode == 2 ? Policy::critical_path : Policy::fifo,
                                  mode == 3 ? Distribution::static_round_robin : Distribution::central};
                 ReferenceScheduler scheduler(config);
-                same_result(simulate_events(tasks,graph.view(),ranks,config,scheduler), tick_oracle(tasks,edges,ranks,config));
+                const auto expected=tick_oracle(tasks,edges,ranks,config);
+                same_result(simulate_events(tasks,graph.view(),ranks,config,scheduler),expected);
+                ReferenceScheduler real_scheduler(config);
+                const auto real=simulate_with_scheduler(workload,config,real_scheduler);
+                same_result(real,expected);
+                verify_result(workload,config,real);
+                require(workload.graph.indegrees()==graph.degrees, "random run changed graph indegrees");
             }
         }
     }
@@ -335,22 +356,69 @@ int run_engine_tests(std::ostream& output) {
             invalid.successors[0][0]=1; ReferenceScheduler mismatch({});
             rejects<std::invalid_argument>([&]{simulate_events({{"a",0,1},{"b",0,2}},invalid.view(),{}, {},mismatch);});
         }},
-        {"960 seeded DAG/configuration cases match tick oracle", randomized_differential}
+        {"960 fixture and 960 real-graph cases match tick oracle", randomized_differential},
+        {"real graph generators pass 72 engine and verifier combinations", [] {
+            const std::vector<ParsedInput> inputs={make_chain_workload(0),make_chain_workload(1),
+                make_chain_workload(40,3,2),make_fork_join_workload(1),
+                make_fork_join_workload(8,2,3),make_layered_workload({3,4,2},5,2)};
+            for (const auto& input : inputs) {
+                const auto workload=validate_workload(input);
+                const auto degrees=workload.graph.indegrees();
+                for (std::size_t units : {1u,2u,4u}) {
+                    for (int mode=0; mode<4; ++mode) {
+                        RunConfig c{units,mode==1?Policy::shortest_job_first:mode==2?Policy::critical_path:Policy::fifo,
+                                    mode==3?Distribution::static_round_robin:Distribution::central};
+                        ReferenceScheduler s(c);
+                        const auto result=simulate_with_scheduler(workload,c,s);
+                        verify_result(workload,c,result);
+                        same_result(result,tick_oracle(input.tasks,input.edges,workload.critical_ranks,c));
+                        require(workload.graph.indegrees()==degrees, "generator run changed original indegrees");
+                    }
+                }
+            }
+        }},
+        {"real graph joins and arrival at same timestamp", [] {
+            const auto w=validate_workload({{{"join",0,1},{"arrival",2,1},{"left",0,2},{"right",0,2}},{{2,0},{3,0}}});
+            RunConfig c{2,Policy::fifo,Distribution::central}; ReferenceScheduler s(c);
+            const auto result=simulate_with_scheduler(w,c,s);
+            verify_result(w,c,result);
+            require(result.tasks[0].ready==2 && result.tasks[0].start==2 && result.tasks[0].unit==0,
+                    "real graph join batching wrong");
+            require(result.tasks[1].start==2 && result.tasks[1].unit==1 && s.batches[1].size()==2,
+                    "real graph arrival batch wrong");
+        }},
+        {"independent graph verifier rejects corrupted engine traces", [] {
+            const auto w=validate_workload({six_tasks,six_edges}); RunConfig c{}; ReferenceScheduler s(c);
+            const auto result=simulate_with_scheduler(w,c,s); verify_result(w,c,result);
+            auto bad=result; bad.tasks[3].ready=2; bad.tasks[3].start=2; bad.tasks[3].finish=4;
+            rejects<std::invalid_argument>([&]{verify_result(w,c,bad);});
+            bad=result; ++bad.busy_ticks[0];
+            rejects<std::invalid_argument>([&]{verify_result(w,c,bad);});
+            bad=result; ++bad.makespan;
+            rejects<std::invalid_argument>([&]{verify_result(w,c,bad);});
+        }},
+        {"real graph adapter checks workload dimensions", [] {
+            auto w=validate_workload({six_tasks,six_edges}); w.tasks.pop_back();
+            ReferenceScheduler s({}); EngineStats stats; stats.ready_tasks=99;
+            rejects<std::invalid_argument>([&]{simulate_with_scheduler(w,{},s,&stats);});
+            require(stats.ready_tasks==0, "failed adapter left stale statistics");
+        }}
     };
     std::size_t failed=0;
     for (const auto& test : tests) {
         try { test.second(); output << "PASS engine: " << test.first << '\n'; }
         catch (const std::exception& error) { ++failed; output << "FAIL engine: " << test.first << ": " << error.what() << '\n'; }
     }
-    output << tests.size()-failed << '/' << tests.size() << " engine tests passed (test-only graph and scheduler adapters).\n";
+    output << tests.size()-failed << '/' << tests.size() << " engine/integration tests passed (real graph plus fixture graph; test-only schedulers).\n";
     return failed==0 ? 0 : 1;
 }
 
 void write_engine_checkpoint(const std::string& directory) {
-    FixtureGraph graph(6,six_edges);
+    const auto workload=validate_workload({six_tasks,six_edges});
     RunConfig config{2,Policy::fifo,Distribution::central}; ReferenceScheduler scheduler(config);
     EngineStats stats;
-    const auto result=simulate_events(six_tasks,graph.view(),{},config,scheduler,&stats);
+    const auto result=simulate_with_scheduler(workload,config,scheduler,&stats);
+    verify_result(workload,config,result);
     std::ofstream trace;
     trace.exceptions(std::ios::failbit | std::ios::badbit);
     trace.open(directory+"/engine_fixture_trace.csv");
@@ -362,7 +430,7 @@ void write_engine_checkpoint(const std::string& directory) {
     std::ofstream summary;
     summary.exceptions(std::ios::failbit | std::ios::badbit);
     summary.open(directory+"/engine_checkpoint.txt");
-    summary << "Isolated engine checkpoint: real event engine, test-only graph and FIFO scheduler.\n"
+    summary << "Graph + engine checkpoint: Shaswitha's real graph/validator, Pranav's engine, test-only FIFO scheduler.\n"
             << "This is not the full project benchmark or CSV parsing pipeline.\n"
             << "Six-task FIFO makespan: " << result.makespan << " ticks\n"
             << "Busy ticks: " << result.busy_ticks[0] << ", " << result.busy_ticks[1] << '\n'
