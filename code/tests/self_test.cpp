@@ -264,6 +264,11 @@ int run_self_tests(std::ostream& output) {
                 DirectedGraph::build(2, {{0, 1}, {0, 1}});
             });
         }},
+        {"directed graph rejects non-adjacent duplicate edges after sorting", [] {
+            throws<std::invalid_argument>([] {
+                DirectedGraph::build(4, {{0, 1}, {1, 2}, {2, 3}, {0, 2}, {0, 1}});
+            });
+        }},
         {"directed graph rejects self-edges and invalid endpoints", [] {
             throws<std::invalid_argument>([] { DirectedGraph::build(2, {{1, 1}}); });
             throws<std::invalid_argument>([] { DirectedGraph::build(2, {{2, 0}}); });
@@ -550,6 +555,36 @@ int run_self_tests(std::ostream& output) {
             }, {3}, 3);
             verify_result(workload, config, result);
         }},
+        {"result verifier uses the latest predecessor finish for ready time", [] {
+            const auto workload = make_workload({2, 5, 1}, {{0, 2}, {1, 2}});
+            const RunConfig config{2, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 0, 0, 5, 1),
+                make_task_record(2, 5, 5, 6, 1)
+            }, {2, 6}, 6);
+            verify_result(workload, config, result);
+
+            auto incorrect = result;
+            incorrect.tasks[2].ready = 2;
+            throws<std::invalid_argument>([&] { verify_result(workload, config, incorrect); });
+        }},
+        {"result verifier uses release time when later than predecessor finishes", [] {
+            ParsedInput input;
+            input.tasks = {{"predecessor", 0, 2}, {"later-release", 5, 1}};
+            input.edges = {{0, 1}};
+            const auto workload = validate_workload(std::move(input));
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({
+                make_task_record(0, 0, 0, 2, 0),
+                make_task_record(1, 5, 5, 6, 0)
+            }, {3}, 6);
+            verify_result(workload, config, result);
+
+            auto incorrect = result;
+            incorrect.tasks[1].ready = 2;
+            throws<std::invalid_argument>([&] { verify_result(workload, config, incorrect); });
+        }},
         {"result verifier rejects a missing task record", [] {
             const auto workload = make_workload({1, 1}, {});
             const RunConfig config{2, Policy::fifo, Distribution::central};
@@ -644,6 +679,12 @@ int run_self_tests(std::ostream& output) {
             const auto result = make_run_result({make_task_record(0, 0, 0, 2, 0)}, {1, 0}, 2);
             throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
         }},
+        {"result verifier rejects negative busy ticks", [] {
+            const auto workload = make_workload({2}, {});
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({make_task_record(0, 0, 0, 2, 0)}, {-2}, 2);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
         {"result verifier rejects an incorrect busy-tick vector size", [] {
             const auto workload = make_workload({2}, {});
             const RunConfig config{2, Policy::fifo, Distribution::central};
@@ -654,6 +695,12 @@ int run_self_tests(std::ostream& output) {
             const auto workload = make_workload({2}, {});
             const RunConfig config{1, Policy::fifo, Distribution::central};
             const auto result = make_run_result({make_task_record(0, 0, 0, 2, 0)}, {2}, 3);
+            throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
+        }},
+        {"result verifier rejects negative makespan", [] {
+            const auto workload = validate_workload({});
+            const RunConfig config{1, Policy::fifo, Distribution::central};
+            const auto result = make_run_result({}, {0}, -1);
             throws<std::invalid_argument>([&] { verify_result(workload, config, result); });
         }},
         {"result verifier detects timestamp overflow", [] {
@@ -762,8 +809,8 @@ int run_self_tests(std::ostream& output) {
         try {test.second();output<<"PASS "<<test.first<<'\n';}
         catch(const std::exception& e){++failed;output<<"FAIL "<<test.first<<": "<<e.what()<<'\n';}
     }
-    output<<tests.size()-failed<<'/'<<tests.size()<<" foundation tests passed\n";
-    output<<"Pending: deque, hash table, CSV parser, load_and_validate, simulation and full-result tests.\n";
+    output<<tests.size()-failed<<'/'<<tests.size()<<" self-tests passed\n";
+    output<<"Pending: ring deque, ID hash table, CSV parser/load_and_validate, simulator, scheduling policies, and metrics.\n";
     return failed==0?0:1;
 }
 } // namespace gpu
