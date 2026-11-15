@@ -5,6 +5,7 @@
 #include "gpu/ds/id_hash_table.hpp"
 #include "gpu/ds/ring_deque.hpp"
 #include "gpu/priority.hpp"
+#include "gpu/workload_generators.hpp"
 #include "../src/dag_algorithms.hpp"
 #include <algorithm>
 #include <functional>
@@ -132,6 +133,49 @@ RunResult make_run_result(std::vector<TaskRecord> tasks, std::vector<Tick> busy_
     result.busy_ticks = std::move(busy_ticks);
     result.makespan = makespan;
     return result;
+}
+void require_task_specs(const ParsedInput& input, Tick release, Tick duration) {
+    for (std::size_t task = 0; task < input.tasks.size(); ++task) {
+        require(input.tasks[task].external_id == "T" + std::to_string(task),
+                "generated task name or dense ordering mismatch");
+        require(input.tasks[task].release == release &&
+                input.tasks[task].duration == duration,
+                "generated task timing mismatch");
+    }
+}
+void require_edges(const ParsedInput& input, const std::vector<EdgePair>& expected) {
+    require(input.edges.size() == expected.size(), "generated edge count mismatch");
+    for (std::size_t edge = 0; edge < expected.size(); ++edge) {
+        require(input.edges[edge].from == expected[edge].from &&
+                input.edges[edge].to == expected[edge].to,
+                "generated edge set or order mismatch");
+    }
+}
+void require_same_input(const ParsedInput& left, const ParsedInput& right) {
+    require(left.tasks.size() == right.tasks.size() && left.edges.size() == right.edges.size(),
+            "repeated generator call changed workload size");
+    for (std::size_t task = 0; task < left.tasks.size(); ++task) {
+        require(left.tasks[task].external_id == right.tasks[task].external_id &&
+                left.tasks[task].release == right.tasks[task].release &&
+                left.tasks[task].duration == right.tasks[task].duration,
+                "repeated generator call changed task data");
+    }
+    for (std::size_t edge = 0; edge < left.edges.size(); ++edge) {
+        require(left.edges[edge].from == right.edges[edge].from &&
+                left.edges[edge].to == right.edges[edge].to,
+                "repeated generator call changed edge data");
+    }
+}
+ValidatedWorkload validate_generated_input(const ParsedInput& input) {
+    const auto workload = validate_workload(input);
+    require(workload.graph.vertex_count() == input.tasks.size(),
+            "generated graph vertex count mismatch");
+    require(workload.graph.edge_count() == input.edges.size(),
+            "generated graph edge count mismatch");
+    require(workload.critical_ranks.size() == input.tasks.size(),
+            "generated rank count mismatch");
+    require_topological_order(workload.graph, workload.topological_order);
+    return workload;
 }
 } // namespace
 
@@ -622,6 +666,95 @@ int run_self_tests(std::ostream& output) {
                 make_task_record(0, 2, 2, maximum, 0)
             }, {maximum - 1}, maximum);
             throws<std::overflow_error>([&] { verify_result(workload, config, result); });
+        }},
+        {"chain workload generator handles empty, singleton, and multiple tasks", [] {
+            const auto empty = make_chain_workload(0);
+            require(empty.tasks.empty() && empty.edges.empty(), "empty chain is not empty");
+            require_task_specs(empty, 0, 1);
+            require(validate_generated_input(empty).critical_ranks.empty(),
+                    "empty chain validation mismatch");
+
+            const auto singleton = make_chain_workload(1, 2, 5);
+            require(singleton.tasks.size() == 1, "singleton chain task count mismatch");
+            require_edges(singleton, {});
+            require_task_specs(singleton, 2, 5);
+            require(validate_generated_input(singleton).critical_ranks ==
+                    std::vector<Tick>({5}), "singleton chain rank mismatch");
+
+            const auto chain = make_chain_workload(4, 2, 3);
+            require(chain.tasks.size() == 4, "chain task count mismatch");
+            require_edges(chain, {{0, 1}, {1, 2}, {2, 3}});
+            require_task_specs(chain, 2, 3);
+            require_same_input(chain, make_chain_workload(4, 2, 3));
+            require(validate_generated_input(chain).critical_ranks ==
+                    std::vector<Tick>({12, 9, 6, 3}), "chain rank mismatch");
+        }},
+        {"fork-join workload generator handles one and multiple branches", [] {
+            const auto single_branch = make_fork_join_workload(1, 1, 2);
+            require(single_branch.tasks.size() == 3, "single-branch task count mismatch");
+            require_edges(single_branch, {{0, 1}, {1, 2}});
+            require_task_specs(single_branch, 1, 2);
+            require(validate_generated_input(single_branch).critical_ranks ==
+                    std::vector<Tick>({6, 4, 2}), "single-branch ranks mismatch");
+
+            const auto fork_join = make_fork_join_workload(3);
+            require(fork_join.tasks.size() == 5, "fork-join task count mismatch");
+            require_edges(fork_join, {{0, 1}, {0, 2}, {0, 3}, {1, 4}, {2, 4}, {3, 4}});
+            require_task_specs(fork_join, 0, 1);
+            require_same_input(fork_join, make_fork_join_workload(3));
+            require(validate_generated_input(fork_join).critical_ranks ==
+                    std::vector<Tick>({3, 2, 2, 2, 1}), "fork-join ranks mismatch");
+        }},
+        {"layered workload generator handles empty, single, and multiple layers", [] {
+            const auto empty = make_layered_workload({});
+            require(empty.tasks.empty() && empty.edges.empty(), "empty layered graph mismatch");
+            require(validate_generated_input(empty).critical_ranks.empty(),
+                    "empty layered validation mismatch");
+
+            const auto single_layer = make_layered_workload({3}, 2, 4);
+            require(single_layer.tasks.size() == 3, "single-layer task count mismatch");
+            require_edges(single_layer, {});
+            require_task_specs(single_layer, 2, 4);
+            require(validate_generated_input(single_layer).critical_ranks ==
+                    std::vector<Tick>({4, 4, 4}), "single-layer ranks mismatch");
+
+            const auto layered = make_layered_workload({2, 3, 1}, 1, 2);
+            require(layered.tasks.size() == 6, "layered task count mismatch");
+            require_edges(layered, {
+                {0, 2}, {0, 3}, {0, 4}, {1, 2}, {1, 3}, {1, 4},
+                {2, 5}, {3, 5}, {4, 5}
+            });
+            require_task_specs(layered, 1, 2);
+            require_same_input(layered, make_layered_workload({2, 3, 1}, 1, 2));
+            require(validate_generated_input(layered).critical_ranks ==
+                    std::vector<Tick>({6, 6, 4, 4, 4, 2}), "layered ranks mismatch");
+        }},
+        {"workload generators reject invalid timing parameters", [] {
+            throws<std::invalid_argument>([] { make_chain_workload(1, -1, 1); });
+            throws<std::invalid_argument>([] { make_fork_join_workload(1, 0, 0); });
+            throws<std::invalid_argument>([] { make_layered_workload({}, 0, -1); });
+        }},
+        {"fork-join generator rejects zero branches", [] {
+            throws<std::invalid_argument>([] { make_fork_join_workload(0); });
+        }},
+        {"layered generator rejects zero-width layers", [] {
+            throws<std::invalid_argument>([] { make_layered_workload({2, 0, 1}); });
+        }},
+        {"workload generators detect count and edge arithmetic overflow", [] {
+            const std::size_t maximum = std::numeric_limits<std::size_t>::max();
+            throws<std::overflow_error>([&] { make_fork_join_workload(maximum); });
+            throws<std::overflow_error>([&] {
+                make_fork_join_workload(maximum / 2 + 1);
+            });
+            throws<std::overflow_error>([&] { make_layered_workload({maximum, 1}); });
+            throws<std::overflow_error>([&] {
+                make_layered_workload({maximum / 2 + 1, 2});
+            });
+        }},
+        {"chain generator rejects task counts beyond vector capacity", [] {
+            throws<std::length_error>([] {
+                make_chain_workload(std::numeric_limits<std::size_t>::max());
+            });
         }}
     };
     std::size_t failed=0;
