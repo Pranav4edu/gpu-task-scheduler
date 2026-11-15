@@ -27,19 +27,20 @@ void foundation_demo() {
     std::ofstream status;
     status.exceptions(std::ios::failbit | std::ios::badbit);
     status.open("results/project_status.txt");
-    status<<"FOUNDATION CHECKPOINT - not a finished simulator\n"
-          <<"Implemented: binary heap, priority keys, shared types, foundation tests.\n"
-          <<"Pending: ring deque, graph, hash table, parser, engine, metrics, charts.\n"
-          <<"heap_event_demo.csv demonstrates heap order only. No benchmark claims.\n";
+    status<<"PARTIAL IMPLEMENTATION - full simulator integration is pending\n"
+          <<"Implemented: binary heap; graph/DAG; workload validation; trace verifier; DAG generators.\n"
+          <<"Pending: ring deque; ID hash table; CSV parser/load_and_validate; simulator; scheduling policies; metrics.\n"
+          <<"Test evidence: previous 77-test baseline passed; updated 82-test suite compiled with MSVC C++17 /W4 /WX, but execution was blocked by Windows Application Control.\n"
+          <<"heap_event_demo.csv demonstrates heap order only, not a schedule or benchmark.\n";
     status.close();
-    std::cout<<"Foundation demo written to code/results/. Simulator implementation is pending.\n";
+    std::cout<<"Heap-event demo written to code/results/. Full simulator integration is pending.\n";
 }
 }
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string(argv[1])=="--self-test")return gpu::run_self_tests(std::cout);
         if(argc==2 && std::string(argv[1])=="--foundation-demo"){foundation_demo();return 0;}
-        std::cerr<<"Use root ./run.sh for the foundation build and tests.\n";
+        std::cerr<<"Use root ./run.sh for the C++17 build, self-tests, and heap-event demo.\n";
         return 2;
     } catch(const std::exception& e) {std::cerr<<"Error: "<<e.what()<<'\n';return 1;}
 }
