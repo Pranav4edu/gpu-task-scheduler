@@ -97,7 +97,9 @@ write_result_files(rows, "results/");  // directory must already exist (run.sh: 
 ```
 
 Writes `results.csv`, one `makespan_<workload>_P<P>.svg` per (workload, P) group and
-per-unit busy charts for `owner_skew*` rows. `result_files(rows)` returns the same
+per-unit `busy_<workload>_<config>_P<P>.svg` charts for `owner_skew*` rows. The unit
+count keeps charts distinct when the same workload and policy run at different P.
+`result_files(rows)` returns the same
 files in memory. No `std::filesystem` is used on purpose (see the Windows note in
 `AAYUSH_WORK_LOG.md`, Step 5).
 

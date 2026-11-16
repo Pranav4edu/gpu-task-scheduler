@@ -71,7 +71,7 @@ struct ResultFileOptions {
 // The files to write as {file name, content}, in this order:
 //   1. results.csv                         (all rows, results_csv format)
 //   2. makespan_<workload>_P<P>.svg        one per distinct (workload, P) group, bars = its rows
-//   3. busy_<workload>_<config>.svg        one per row selected by the options prefix
+//   3. busy_<workload>_<config>_P<P>.svg   one per row selected by the options prefix
 // Names are sanitized to letters, digits and underscore. Throws std::invalid_argument
 // if two files would get the same name (e.g. two identical rows), so nothing is silently lost.
 std::vector<std::pair<std::string, std::string>> result_files(const std::vector<ExperimentRow>& rows,

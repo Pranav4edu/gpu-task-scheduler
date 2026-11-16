@@ -225,7 +225,8 @@ std::vector<std::pair<std::string, std::string>> result_files(const std::vector<
         if (row.workload.compare(0, options.busy_chart_workload_prefix.size(),
                                  options.busy_chart_workload_prefix) == 0)
             files.emplace_back("busy_" + safe_name(row.workload) + "_" +
-                                   config_label(row.policy, row.distribution) + ".svg",
+                                   config_label(row.policy, row.distribution) + "_P" +
+                                   std::to_string(row.compute_units) + ".svg",
                                busy_time_chart_svg(row));
 
     for (std::size_t i = 0; i < files.size(); ++i)

@@ -170,9 +170,9 @@ void result_bundle_names_and_contents() {
             "owner-skew makespan chart groups both configs");
     require(count_of(files[1].second, "<rect") == 3, "two bars in the grouped chart");
     require(files[2].first == "makespan_chain_100_P1.svg" && count_of(files[2].second, "<rect") == 2, "chain chart");
-    require(files[3].first == "busy_owner_skew_N100_P2_central_fifo.svg" &&
+    require(files[3].first == "busy_owner_skew_N100_P2_central_fifo_P2.svg" &&
             files[3].second == busy_time_chart_svg(central), "busy chart central");
-    require(files[4].first == "busy_owner_skew_N100_P2_static_fifo.svg", "busy chart static");
+    require(files[4].first == "busy_owner_skew_N100_P2_static_fifo_P2.svg", "busy chart static");
     // Empty prefix: a busy chart for every row.
     ResultFileOptions everything;
     everything.busy_chart_workload_prefix = "";
@@ -182,6 +182,25 @@ void result_bundle_names_and_contents() {
             "makespan_a_b_c_P1.svg", "name sanitizing");
     // Two identical rows would overwrite each other's busy chart: refuse.
     throws<std::invalid_argument>([&] { result_files({central, central}); });
+}
+void result_bundle_preserves_multiple_unit_counts() {
+    const auto single = row("chain_100", 1, Policy::fifo, Distribution::central, 700, {700});
+    const auto dual = row("chain_100", 2, Policy::fifo, Distribution::central, 700, {350, 350});
+    const std::vector<ExperimentRow> rows = {single, dual};
+    ResultFileOptions options;
+    options.busy_chart_workload_prefix = "";
+    const auto files = result_files(rows, options);
+    require(files.size() == 5, "expected csv + 2 makespan + 2 busy files across unit counts");
+    require(files[3].first == "busy_chain_100_central_fifo_P1.svg" &&
+            files[3].second == busy_time_chart_svg(single), "single-unit busy chart preserved");
+    require(files[4].first == "busy_chain_100_central_fifo_P2.svg" &&
+            files[4].second == busy_time_chart_svg(dual), "two-unit busy chart preserved");
+    const std::string prefix = "export_multi_units_test_";
+    write_result_files(rows, prefix, options);
+    for (const auto& file : files) {
+        require(read_file(prefix + file.first) == file.second, "multi-unit bundle content differs");
+        std::remove((prefix + file.first).c_str());
+    }
 }
 void result_bundle_writes_files() {
     const auto rows = std::vector<ExperimentRow>{
@@ -208,6 +227,7 @@ std::vector<std::pair<const char*, std::function<void()>>> export_tests() {
         {"export output is deterministic", output_is_deterministic},
         {"export file write round trip and errors", file_round_trip_and_errors},
         {"export result bundle names, grouping and sanitizing", result_bundle_names_and_contents},
+        {"export result bundle preserves multiple unit counts", result_bundle_preserves_multiple_unit_counts},
         {"export result bundle writes files", result_bundle_writes_files},
     };
 }
