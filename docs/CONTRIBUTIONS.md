@@ -5,6 +5,36 @@ it does not substitute for course-required acknowledgment of assistance, owner
 understanding, peer review, or actual commit/PR records. Do not invent links or
 claim independent authorship based only on a task assignment.
 
+## Aayush - ring deque, schedulers, export and owner-skew workloads
+
+All of the following was drafted with AI assistance (Claude Code) at Aayush's request.
+This is not a claim of independent student authorship; owner review, explanation and
+peer review are still pending and must be recorded by the contributor. Details, design
+rationale and per-step checklists are in [AAYUSH_WORK_LOG.md](AAYUSH_WORK_LOG.md).
+
+- `RingDeque<T>` (`code/include/gpu/ds/ring_deque.hpp`, `code/tests/test_ring_deque.cpp`,
+  8 tests): circular array, doubling growth, both-end operations, operation counters.
+- Production schedulers behind the shared `Scheduler` interface
+  (`code/include/gpu/scheduler.hpp`, `code/src/policies.cpp`, `make_scheduler`): central
+  FIFO on `RingDeque`, central SJF and CP on the shared `BinaryHeap`, static round-robin
+  FIFO (one `RingDeque` per unit) and optional work stealing. Tests: `test_scheduler.cpp`,
+  `test_policies.cpp` (including the six-task hand oracles), `test_static_scheduler.cpp`,
+  `test_stealing.cpp`.
+- Export and counters: results CSV, makespan and busy-time SVG charts, result-file bundle,
+  `ds_metrics` counter CSV (`export.hpp`, `ds_metrics.hpp`, `test_export.cpp`,
+  `test_ds_metrics.cpp`).
+- Owner-skew workload generator and 12 saved fixtures (`workloads.hpp`,
+  `code/data/workloads/`, `test_workloads.cpp`).
+- Engine integration: `simulate()` wrapper (`code/src/simulate.cpp`) and
+  `code/tests/test_scheduler_engine.cpp`, which run all five production configurations
+  through Pranav's real engine and Shaswitha's real graph and verifier.
+- Handoff notes: [INTEGRATION_AAYUSH.md](INTEGRATION_AAYUSH.md) and
+  [AAYUSH_PRESENTATION_NOTES.md](AAYUSH_PRESENTATION_NOTES.md).
+
+Limits: stealing has not been checked by a policy-aware validator (the verifier does not
+check ownership or steal flags; the engine does check them). Fixtures were not loaded
+through a CSV parser (none exists yet). No measured benchmark results are claimed.
+
 ## Shaswitha — graph and validation module
 
 The assigned module implementation includes:
@@ -47,9 +77,8 @@ review and understanding.
 
 ## Other project work
 
-The current source tree still has declaration-only `RingDeque` and
-`IdHashTable` headers. The CSV parser, `load_and_validate`, integrated production scheduling policies,
-and metrics remain pending. The event engine from PR #3 is included in this
+The current source tree still has a declaration-only `IdHashTable` header. The CSV parser,
+`load_and_validate` and metrics remain pending. The event engine from PR #3 is included in this
 local integration branch. Their owners should add evidence only after implementation
 and verification; this document does not assign unverified authorship or review.
 

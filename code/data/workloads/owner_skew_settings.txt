@@ -1,0 +1,14 @@
+# Owner-skew workload fixtures (generator: owner_skew_csv in code/src/workloads.cpp)
+# Regenerate with: ./build/gpu_sim --write-skew-workloads   (run from the code/ directory)
+# The saved CSVs are authoritative; a test checks they match the generator byte for byte.
+#
+# One workload per (tasks N, units P): 3 sizes x 4 unit counts = 12 files.
+# Task i (0-based row) is named T<i>, released at 0, with no dependencies.
+# Static round-robin owner of task i = i mod P. Owner-0 tasks are heavy, all others light.
+# No random numbers are used, so files are identical on every platform.
+# Compare central vs static ONLY at the same P (the pattern changes with P); do not use
+# these files for cross-P speedup. With P = 1 central and static are identical.
+heavy_duration = 10
+light_duration = 1
+tasks = 100 1000 10000
+units = 1 2 4 8

@@ -180,7 +180,7 @@ ValidatedWorkload validate_generated_input(const ParsedInput& input) {
 } // namespace
 
 int run_self_tests(std::ostream& output) {
-    const std::vector<std::pair<const char*, std::function<void()>>> tests = {
+    std::vector<std::pair<const char*, std::function<void()>>> tests = {
         {"heap rejects empty top and pop", [] {
             BinaryHeap<int> h; throws<std::underflow_error>([&]{h.top();});
             throws<std::underflow_error>([&]{h.pop();});
@@ -804,6 +804,15 @@ int run_self_tests(std::ostream& output) {
             });
         }}
     };
+    for (auto& t : ring_deque_tests()) tests.push_back(std::move(t));
+    for (auto& t : scheduler_tests()) tests.push_back(std::move(t));
+    for (auto& t : policy_tests()) tests.push_back(std::move(t));
+    for (auto& t : static_scheduler_tests()) tests.push_back(std::move(t));
+    for (auto& t : export_tests()) tests.push_back(std::move(t));
+    for (auto& t : workload_tests()) tests.push_back(std::move(t));
+    for (auto& t : stealing_tests()) tests.push_back(std::move(t));
+    for (auto& t : ds_metrics_tests()) tests.push_back(std::move(t));
+    for (auto& t : scheduler_engine_tests()) tests.push_back(std::move(t));
     std::size_t failed=0;
     for(const auto& test:tests){
         try {test.second();output<<"PASS "<<test.first<<'\n';}
@@ -811,7 +820,7 @@ int run_self_tests(std::ostream& output) {
     }
     output<<tests.size()-failed<<'/'<<tests.size()<<" foundation and graph tests passed\n";
     const int engine_failed = run_engine_tests(output);
-    output<<"Pending integration: deque, hash table, parser, production scheduler, metrics and full-result tests.\n";
+    output<<"Pending integration: hash table, parser, metrics and full-result tests.\n";
     return failed==0 && engine_failed==0 ? 0 : 1;
 }
 } // namespace gpu
