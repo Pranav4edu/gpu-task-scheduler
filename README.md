@@ -87,7 +87,6 @@ code/data/workloads/            48 saved benchmark inputs and generator settings
 code/config/                   deterministic experiment settings
 code/build/                    generated binaries (excluded from submission)
 code/results/                  regenerated metrics, traces and charts
-code/tools/                    optional development tools in the submission
 docs/                         design, contribution and presentation notes
 .github/workflows/build.yml    Linux/macOS build and Linux sanitizer CI
 tools/                        optional developer audits and report/package builders
@@ -97,9 +96,7 @@ tools/                        optional developer audits and report/package build
 
 The grading path requires no Python. Developers with Python 3 can additionally
 run `python3 tools/verify_outputs.py` after `./run.sh` to audit the output table,
-closed-form workload results, counters and SVG XML independently. The submission
-copy places that optional tool under `code/tools/` (pass the project root as its
-argument). Linux CI also runs AddressSanitizer and UndefinedBehaviorSanitizer.
+closed-form workload results, counters and SVG XML independently. Linux CI also runs AddressSanitizer and UndefinedBehaviorSanitizer.
 
 See `docs/FINAL_INTEGRATION.md` for final validation evidence, `docs/CONTRACTS.md`
 for semantics, and `docs/PRESENTATION_GUIDE.md` for each member's walkthrough.
