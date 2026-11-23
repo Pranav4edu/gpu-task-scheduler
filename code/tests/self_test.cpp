@@ -3,6 +3,7 @@
 #include "gpu/ds/binary_heap.hpp"
 #include "gpu/ds/id_hash_table.hpp"
 #include "gpu/ds/ring_deque.hpp"
+#include "gpu/hash_parser_metrics_tests.hpp"
 #include "gpu/priority.hpp"
 #include <algorithm>
 #include <functional>
@@ -10,6 +11,7 @@
 #include <ostream>
 #include <random>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace gpu {
@@ -129,12 +131,14 @@ int run_self_tests(std::ostream& output) {
             throws<std::invalid_argument>([]{validate_config({2,static_cast<Policy>(99),Distribution::central});});
         }}
     };
+    std::vector<NamedTest> all_tests(tests.begin(), tests.end());
+    for (auto& extra : hash_parser_metrics_tests()) all_tests.push_back(std::move(extra));
     std::size_t failed=0;
-    for(const auto& test:tests){
+    for(const auto& test:all_tests){
         try {test.second();output<<"PASS "<<test.first<<'\n';}
         catch(const std::exception& e){++failed;output<<"FAIL "<<test.first<<": "<<e.what()<<'\n';}
     }
-    output<<tests.size()-failed<<'/'<<tests.size()<<" foundation tests passed\n";
+    output<<all_tests.size()-failed<<'/'<<all_tests.size()<<" foundation tests passed\n";
     output<<"Pending: deque, graph, hash table, parser, simulation and full-result tests.\n";
     return failed==0?0:1;
 }
