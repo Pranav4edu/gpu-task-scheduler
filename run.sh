@@ -8,8 +8,15 @@ command -v "$CXX" >/dev/null 2>&1 || {
     exit 1
 }
 mkdir -p build results
+# Windows shells (Git Bash/MSYS2): link statically. Otherwise Windows can load an
+# older libstdc++-6.dll shipped with Git instead of the compiler's own, which makes
+# programs that use file streams crash. Linux and macOS are unaffected.
+LINK_FLAGS=""
+case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) LINK_FLAGS="-static" ;;
+esac
 # Build every current source and test file; no precompiled binaries or downloads.
-"$CXX" -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror \
+"$CXX" -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror $LINK_FLAGS \
     -Iinclude src/*.cpp tests/*.cpp -o build/gpu_sim
 if ./build/gpu_sim --self-test > results/test_summary.txt 2>&1; then
     cat results/test_summary.txt

@@ -1,0 +1,11 @@
+# Keep line endings identical on every OS. Windows checkouts must not turn these
+# into CRLF: a CRLF run.sh fails in sh, and saved workload fixtures are compared
+# byte for byte against the generator in the unit tests.
+* text=auto
+*.sh text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.csv text eol=lf

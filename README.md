@@ -5,15 +5,16 @@ compute units. No physical GPU or CUDA is required.
 
 ## Current checkpoint
 
-**Local graph + engine integration check, November 14; not the final submission.**
-This branch combines Pranav's engine (PR #3) with Shaswitha's real adjacency-list
-graph, Kahn ordering, CP ranks, workload validator, trace verifier and DAG
-generators (PR #4). `simulate_with_scheduler` connects those modules without
-changing their existing interfaces. Tests and the checkpoint trace use the real
-graph, while scheduler substitutes remain in `code/tests/`. The deque, hash table,
-parser, production scheduler, metrics and full experiment pipeline remain pending.
-The two-argument `simulate` wrapper still awaits production scheduler construction.
-See [the integration record](docs/INTEGRATION_CHECK.md) for scope and evidence.
+**Local graph + engine + scheduler integration, not the final submission.**
+This branch combines Pranav's engine (PR #3), Shaswitha's real graph, Kahn ordering, CP
+ranks, workload validator, trace verifier and DAG generators (PR #4), and Aayush's ring
+deque, production schedulers (central FIFO/SJF/CP, static round-robin, optional work
+stealing), CSV/SVG export, data-structure counters and owner-skew workloads. The
+two-argument `simulate` wrapper builds the production scheduler, and integration tests
+run all five configurations through the real graph and engine, checked by the
+independent verifier. The hash table, CSV parser, metrics and full experiment pipeline
+remain pending. All AI-assisted work still needs owner review. See
+[the integration record](docs/INTEGRATION_CHECK.md) for the graph/engine evidence.
 
 ## Run
 
@@ -27,9 +28,10 @@ From the repository root:
 The script resolves its own location, compiles source and tests, stops on failure,
 and writes these files without arguments or network downloads:
 
-- `code/results/test_summary.txt`: 82 foundation/graph tests and 18 engine/integration
-  groups, including 960 fixture-graph and 960 real-graph comparisons with a tick
-  oracle, plus 72 generated-workload/configuration combinations.
+- `code/results/test_summary.txt`: foundation, graph, scheduler/export/workload tests and the
+  engine/integration groups, including 960 fixture-graph and 960 real-graph comparisons with a
+  tick oracle, generated-workload/configuration combinations, and production schedulers run
+  through the real engine.
 - `code/results/heap_event_demo.csv`: illustrative heap ordering, **not a schedule**.
 - `code/results/engine_fixture_trace.csv`: a real engine trace for the six-task
   FIFO fixture, using the **real graph and a test-only scheduler**, checked by
@@ -37,6 +39,11 @@ and writes these files without arguments or network downloads:
 - `code/results/engine_checkpoint.txt`: fixture makespan, busy ticks and engine
   counters; not a full benchmark report.
 - `code/results/project_status.txt`: implemented and pending functionality.
+
+On Windows, run this from Git Bash (or WSL), not PowerShell, with a C++17
+compiler such as MSYS2 g++ on PATH. Be inside the project folder first:
+`cd gpu-task-scheduler && sh run.sh`. On these shells `run.sh` links statically,
+because Git Bash can otherwise load an older `libstdc++-6.dll` and crash.
 
 You may select a compiler with `CXX=clang++ ./run.sh`. GitHub Actions runs this same
 entry point on Linux and macOS. The final version must extend the pipeline to
@@ -66,6 +73,7 @@ code/src/                 current executable; implementation modules go here
 code/tests/               tests compiled into the executable
 code/data/fixtures/       valid and invalid workload inputs
 code/data/expected/       hand-calculated test oracles, not measured output
+code/data/workloads/      saved owner-skew workload CSVs (12) and their generator settings
 code/config/              planned default experiment configuration
 code/build/               generated executable, ignored by Git
 code/results/             generated output, ignored by Git
@@ -73,7 +81,7 @@ docs/                     contracts, tasks and contribution records
 .github/                  CI and pull-request template
 ```
 
-Start with [the team quickstart](docs/QUICKSTART.md),
+Start with [the team quickstart](docs/QUICKSTART.md), [the scheduler/export integration guide](docs/INTEGRATION_AAYUSH.md),
 [shared contracts](docs/CONTRACTS.md), and [the task board](docs/TASKS.md).
 Record real implementation and review evidence in [contributions](docs/CONTRIBUTIONS.md).
 For Pranav's engine walkthrough and teammate handoffs, read
