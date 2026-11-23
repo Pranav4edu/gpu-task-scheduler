@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 namespace gpu {
+std::vector<std::pair<const char*, std::function<void()>>> full_pipeline_tests();
 int run_self_tests(std::ostream& output);
 int run_engine_tests(std::ostream& output);
 // Generates a clearly labeled trace using the same test-only fixtures.

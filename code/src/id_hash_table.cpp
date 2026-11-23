@@ -28,9 +28,12 @@ IdHashTable::IdHashTable(std::size_t initial_buckets, HashFunction hash)
       hash_(hash ? std::move(hash) : HashFunction(default_hash)) {}
 
 bool IdHashTable::insert(const std::string& key, TaskId value) {
+    ++stats_.inserts;
     std::size_t bucket = hash_(key) % buckets_.size();
-    for (std::size_t i = buckets_[bucket]; i != no_edge; i = entries_[i].next)
+    for (std::size_t i = buckets_[bucket]; i != no_edge; i = entries_[i].next) {
+        ++stats_.key_comparisons;
         if (entries_[i].key == key) return false; // keep the existing mapping
+    }
 
     if (!within_load_limit(entries_.size() + 1, buckets_.size())) {
         const std::size_t limit = std::numeric_limits<std::size_t>::max() / 2;
@@ -44,9 +47,12 @@ bool IdHashTable::insert(const std::string& key, TaskId value) {
 }
 
 std::optional<TaskId> IdHashTable::find(const std::string& key) const {
+    ++stats_.finds;
     const std::size_t bucket = hash_(key) % buckets_.size();
-    for (std::size_t i = buckets_[bucket]; i != no_edge; i = entries_[i].next)
+    for (std::size_t i = buckets_[bucket]; i != no_edge; i = entries_[i].next) {
+        ++stats_.key_comparisons;
         if (entries_[i].key == key) return entries_[i].value;
+    }
     return std::nullopt;
 }
 
@@ -76,5 +82,7 @@ void IdHashTable::rehash(std::size_t bucket_count) {
         fresh[bucket] = i;
     }
     buckets_ = std::move(fresh);
+    ++stats_.rehashes;
+    stats_.entries_rehashed += entries_.size();
 }
 } // namespace gpu

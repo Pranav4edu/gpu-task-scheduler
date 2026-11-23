@@ -17,7 +17,7 @@ struct Metrics {
 };
 
 // validate_workload and verify_result are implemented by the graph module.
-// Parsing, metrics and the two-argument simulate wrapper remain pending.
+// Parsing, metrics and the production two-argument simulate wrapper are implemented.
 // simulate_with_scheduler in gpu/simulator.hpp connects the graph and engine.
 ParsedInput parse_csv(const std::string& path); // Divyaa
 ValidatedWorkload validate_workload(ParsedInput input); // Shaswitha

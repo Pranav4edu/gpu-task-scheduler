@@ -1,16 +1,15 @@
 # Shared contracts and implementation status
 
-Status snapshot: November 14, 2026. Public declarations are the shared
-interfaces. Some modules are implemented and others remain declaration-only;
-check the status below rather than assuming every declared function has a
-definition. Changes to shared types or contracts require affected owners'
-coordination.
+Status: November 23, 2026. All four data structures, parser, graph, production
+schedulers, event engine, metrics and automatic experiment pipeline are implemented.
+Public declarations are the shared interfaces. The final pipeline is described in
+`FINAL_INTEGRATION.md`; earlier checkpoint records are historical.
 
 ## Ownership and integration
 
 | Producer | Consumer | Contract |
 | --- | --- | --- |
-| Divyaa's parser (pending) | Shaswitha's validator | `ParsedInput` contains task rows in input order and resolved `EdgePair {from,to}` values, with edges directed predecessor to successor. |
+| Divyaa's parser (implemented) | Shaswitha's validator | `ParsedInput` contains task rows in input order and resolved `EdgePair {from,to}` values, with edges directed predecessor to successor. |
 | Shaswitha's graph module (implemented) | Engine and scheduler | Immutable successor traversal, original indegrees, topological order, and critical-path ranks. |
 | Engine (implemented) | Validator and metrics | One `TaskRecord` per task at its dense index, busy ticks for every unit, and makespan. |
 | Engine (implemented) | Aayush's scheduler | Newly ready `ReadyKey` batches in ascending `TaskId` order, with immutable durations, ready times, and ranks. |
@@ -28,7 +27,7 @@ executable entry point in `main.cpp` and add tests to the shared test runner.
   `std::underflow_error`. It owns vector storage and tracks successful
   operations and heap statistics. Sifting is O(log H); a growth insertion can
   be O(H).
-- **RingDeque:** declaration only. The contract is head/count plus array
+- **RingDeque:** implemented. The representation is head/count plus array
   storage, wraparound, and doubling growth. Empty access/pop throws
   `std::underflow_error`; pops are O(1), pushes amortized O(1), and resizing is
   O(Q).
@@ -49,9 +48,10 @@ executable entry point in `main.cpp` and add tests to the shared test runner.
   duration plus the maximum successor rank. `checked_add` detects tick
   overflow. The helper validates topological-order dimensions and edge
   ordering. Time is O(N+E), with O(N) temporary storage.
-- **IdHashTable:** declaration only. Its contract specifies owned hashing,
-  bucket heads, entry-pool chains, and rehashing; implementation and collision
-  tests remain pending.
+- **IdHashTable:** implemented with FNV-1a over unsigned bytes, bucket heads,
+  entry-pool chains and doubling rehashes before load exceeds 0.75. Duplicate
+  insertion preserves the first value. HashStats exposes calls, comparisons
+  and rehash work; collision/reference tests cover the implementation.
 
 ## Workload validation
 
@@ -116,7 +116,7 @@ O(N log N) characters in the worst case. Output storage is O(N+E). For
 fork-join, N=B+2 and E=2B. For layered graphs,
 N=Σ widthᵢ and E=Σ(widthᵢ × widthᵢ₊₁).
 
-## Input format and pending parser
+## Input format and parser
 
 The agreed target input format is:
 
@@ -130,7 +130,7 @@ E,0,4,C
 F,0,1,D;E
 ```
 
-The parser and `load_and_validate` are pending. The parser contract is exactly
+The parser and `load_and_validate` are implemented. The parser contract is exactly
 four comma-separated fields, semicolon-separated predecessor IDs, no quoted
 fields or embedded commas, IDs containing letters/digits/underscores, LF/CRLF,
 trimmed whitespace, and two-pass resolution for forward references. Parsing
@@ -142,8 +142,8 @@ order.
 
 ## Event and scheduling contract
 
-The engine implements the following event semantics. Production scheduling
-policies and the complete CSV pipeline remain pending:
+The engine implements the following event semantics. The production schedulers
+and complete CSV pipeline use this contract:
 
 1. Pop every event at the minimum time.
 2. Process completions, free units, and decrement successor counters.
@@ -168,7 +168,7 @@ arithmetic.
 
 Central FIFO/SJF/CP and static FIFO are required pairs; stealing FIFO is
 optional. SJF/CP with local distribution is not supported. Production scheduler
-integration and metrics remain pending. Exact durations/ranks are
+integration and metrics are implemented. Exact durations/ranks are
 known offline; this is a GPU-inspired simulation, not physical GPU execution.
 
 ## Metrics and test evidence
@@ -178,7 +178,7 @@ turnaround = finish-release; makespan is measured from zero. Useful utilization
 is total duration / (P × makespan). Busy-time CV uses population standard
 deviation over all units. Nearest-rank p95 uses sorted position
 ceil(0.95 × N). Empty makespan is zero; empty averages and zero-denominator
-ratios are N/A. Metrics implementation remains pending.
+ratios are N/A. Metrics are implemented in `src/metrics.cpp`; the driver verifies each trace first.
 
 `code/data/expected/six_tasks.csv` is a hand-calculated oracle, not measured
 output. For P=2 and all releases zero, FIFO/SJF makespan is 13, mean wait 2/6,
@@ -187,8 +187,7 @@ Critical-path ranks are A=5, B=6, C=11, D=3, E=5, F=1.
 
 The graph branch initially reported a Windows execution restriction after
 compiling 82 tests. Subsequent GitHub CI passed all 82; this local integration
-branch also passes those 82 tests and 18 engine/integration groups. See
-`docs/INTEGRATION_CHECK.md` for the combined evidence and remaining scope.
+branch also passes those 82 tests and 18 engine/integration groups. Those counts are historical. See `FINAL_INTEGRATION.md` for current evidence.
 
 ## Engine adapter and assignment checks
 

@@ -1,56 +1,22 @@
-#include "gpu/ds/binary_heap.hpp"
-#include "gpu/priority.hpp"
+#include "gpu/experiments.hpp"
 #include "gpu/self_test.hpp"
 #include "gpu/workloads.hpp"
-#include <fstream>
+#include <exception>
 #include <iostream>
-#include <stdexcept>
 #include <string>
-
-namespace {
-void foundation_demo() {
-    gpu::BinaryHeap<gpu::Event, gpu::EventBefore> events;
-    // A container demonstration only, not a dependency-aware schedule.
-    events.push({6,gpu::EventKind::completion,2,0,2});
-    events.push({0,gpu::EventKind::arrival,0,0,0});
-    events.push({3,gpu::EventKind::completion,1,1,1});
-    events.push({3,gpu::EventKind::arrival,3,0,3});
-    std::ofstream csv;
-    csv.exceptions(std::ios::failbit | std::ios::badbit);
-    csv.open("results/heap_event_demo.csv");
-    csv<<"time,event,task_index,unit_index\n";
-    while(!events.empty()) {
-        auto e=events.pop();
-        csv<<e.time<<','<<(e.kind==gpu::EventKind::arrival?"arrival":"completion")
-           <<','<<e.task<<','<<e.unit<<'\n';
-    }
-    csv.close();
-    std::ofstream status;
-    status.exceptions(std::ios::failbit | std::ios::badbit);
-    status.open("results/project_status.txt");
-    status<<"GRAPH + ENGINE CHECKPOINT - not the integrated final simulator\n"
-          <<"Implemented: heap, ring deque, schedulers (central FIFO/SJF/CP, static, stealing), export, owner-skew workloads, graph/DAG, workload validation, trace verifier, DAG generators and event engine.\n"
-          <<"Pending integration: hash table, parser, metrics, full run pipeline.\n"
-          <<"heap_event_demo.csv demonstrates heap order only. No benchmark claims.\n";
-    status.close();
-    std::cout<<"Heap demonstration written to code/results/.\n";
-}
-}
-int main(int argc,char** argv) {
+int main(int argc, char** argv) {
     try {
-        if(argc==2 && std::string(argv[1])=="--self-test")return gpu::run_self_tests(std::cout);
-        if(argc==2 && std::string(argv[1])=="--foundation-demo"){foundation_demo();return 0;}
-        if(argc==2 && std::string(argv[1])=="--engine-checkpoint"){
-            gpu::write_engine_checkpoint("results");
-            std::cout<<"Real graph + engine trace verified with test-only schedulers; production schedulers are covered by the integration tests; the CSV pipeline is pending.\n";
-            return 0;
+        if (argc == 2 && std::string(argv[1]) == "--self-test") return gpu::run_self_tests(std::cout);
+        if (argc == 2 && std::string(argv[1]) == "--write-experiment-inputs") {
+            gpu::write_experiment_inputs(); return 0;
         }
-        if(argc==2 && std::string(argv[1])=="--write-skew-workloads"){ // developer tool, not part of run.sh
-            gpu::write_owner_skew_fixtures("data/workloads");
-            std::cout<<"Wrote owner-skew workloads to data/workloads/\n";
-            return 0;
+        if (argc == 2 && std::string(argv[1]) == "--write-skew-workloads") {
+            gpu::write_owner_skew_fixtures("data/workloads/"); return 0;
         }
-        std::cerr<<"Use root ./run.sh for the checkpoint build and tests.\n";
-        return 2;
-    } catch(const std::exception& e) {std::cerr<<"Error: "<<e.what()<<'\n';return 1;}
+        if (argc != 1) throw std::invalid_argument("Use root ./run.sh without arguments.");
+        gpu::run_experiments();
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << '\n'; return 1;
+    }
 }

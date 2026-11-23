@@ -1,5 +1,6 @@
 #include "gpu/contracts.hpp"
 #include "gpu/ds/id_hash_table.hpp"
+#include "gpu/parser_stats.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -101,6 +102,11 @@ std::vector<std::string> read_lines(const std::string& path) {
 } // namespace
 
 ParsedInput parse_csv(const std::string& path) {
+    return parse_csv(path, nullptr);
+}
+
+ParsedInput parse_csv(const std::string& path, ParserStats* stats) {
+    if (stats) *stats = {};
     std::vector<std::string> lines = read_lines(path);
     if (lines.empty()) throw std::runtime_error(path + ": row 1: missing header row");
     // Spreadsheet exports sometimes start with a UTF-8 byte order mark.
@@ -170,6 +176,10 @@ ParsedInput parse_csv(const std::string& path) {
             parsed.edges.push_back(EdgePair{*from, task});
         }
     }
+    if (stats) *stats = {index.stats(), seen_edges.stats()};
     return parsed;
+}
+ValidatedWorkload load_and_validate(const std::string& path) {
+    return validate_workload(parse_csv(path));
 }
 } // namespace gpu

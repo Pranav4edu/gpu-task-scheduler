@@ -24,5 +24,19 @@ else
     cat results/test_summary.txt >&2
     exit 1
 fi
-./build/gpu_sim --foundation-demo
-./build/gpu_sim --engine-checkpoint
+./build/gpu_sim
+{
+    printf 'Compiler: '
+    "$CXX" --version
+    printf '\nBuild flags: -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror %s\n' "$LINK_FLAGS"
+    printf 'Host: '
+    uname -sm
+    printf 'Source version: '
+    if test -f "$PROJECT_ROOT/SOURCE_VERSION.txt"; then
+        cat "$PROJECT_ROOT/SOURCE_VERSION.txt"
+    else
+        git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || printf 'unavailable\n'
+    fi
+    printf '\nInput checksums: POSIX cksum (CRC and bytes); not cryptographic hashes.\n'
+    find data -type f -name '*.csv' -exec cksum {} \; | LC_ALL=C sort
+} > results/run_manifest.txt

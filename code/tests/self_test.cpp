@@ -816,12 +816,13 @@ int run_self_tests(std::ostream& output) {
     for (auto& t : scheduler_engine_tests()) tests.push_back(std::move(t));
     for (auto& t : hash_parser_metrics_tests()) tests.push_back(std::move(t));
 
+    for (auto& t : full_pipeline_tests()) tests.push_back(std::move(t));
     std::size_t failed=0;
     for(const auto& test:tests){
         try {test.second();output<<"PASS "<<test.first<<'\n';}
         catch(const std::exception& e){++failed;output<<"FAIL "<<test.first<<": "<<e.what()<<'\n';}
     }
-    output<<tests.size()-failed<<'/'<<tests.size()<<" foundation and graph tests passed\n";
+    output<<tests.size()-failed<<'/'<<tests.size()<<" module and full-pipeline test groups passed\n";
     const int engine_failed = run_engine_tests(output);
     return failed==0 && engine_failed==0 ? 0 : 1;
 

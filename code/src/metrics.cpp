@@ -30,7 +30,8 @@ Metrics compute_metrics(const ValidatedWorkload& workload, const RunResult& resu
         const TaskRecord& record = result.tasks[i];
         const TaskSpec& spec = workload.tasks[i];
         if (record.task != i) throw std::invalid_argument("task records must be indexed by TaskId");
-        if (record.start < record.ready || record.finish < record.start || record.finish < spec.release)
+        if (record.ready < 0 || spec.release < 0 || spec.duration <= 0 ||
+            record.start < record.ready || record.finish < record.start || record.finish < spec.release)
             throw std::invalid_argument("task record times are inconsistent");
         const Tick wait = record.start - record.ready;
         waits.push_back(wait);
@@ -44,7 +45,7 @@ Metrics compute_metrics(const ValidatedWorkload& workload, const RunResult& resu
         metrics.mean_turnaround = static_cast<double>(turnaround_sum / static_cast<long double>(count));
         std::sort(waits.begin(), waits.end());
         // ceil(95 * N / 100) in integers; the rank is at least 1 because N >= 1.
-        const std::size_t rank = (95 * count + 99) / 100;
+        const std::size_t rank = count - count / 20;
         metrics.p95_ready_wait = static_cast<double>(waits[rank - 1]);
     }
 

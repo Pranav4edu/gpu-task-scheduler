@@ -1,100 +1,105 @@
 # GPU Task Scheduler and Load Balancer
 
-CE 6320 Group 4: a deterministic C++17 simulator of dependent tasks on virtual
-compute units. No physical GPU or CUDA is required.
+CE 6320, Group 4. A complete C++17 discrete-event simulator for dependent tasks
+on identical virtual compute units. No GPU hardware, CUDA, downloads or external
+C++ libraries are needed.
 
-## Current checkpoint
+## Run the entire project
 
-**Local graph + engine + scheduler integration, not the final submission.**
-This branch combines Pranav's engine (PR #3), Shaswitha's real graph, Kahn ordering, CP
-ranks, workload validator, trace verifier and DAG generators (PR #4), and Aayush's ring
-deque, production schedulers (central FIFO/SJF/CP, static round-robin, optional work
-stealing), CSV/SVG export, data-structure counters and owner-skew workloads. The
-two-argument `simulate` wrapper builds the production scheduler, and integration tests
-run all five configurations through the real graph and engine, checked by the
-independent verifier. The hash table, CSV parser, metrics and full experiment pipeline
-remain pending. All AI-assisted work still needs owner review. See
-[the integration record](docs/INTEGRATION_CHECK.md) for the graph/engine evidence.
-
-## Run
-
-Requires a POSIX shell and a C++17 compiler (Apple Clang, Clang or GCC).
-From the repository root:
+Requires an installed C++17 compiler (GCC or Clang) and a POSIX shell:
 
 ```sh
 ./run.sh
 ```
 
-The script resolves its own location, compiles source and tests, stops on failure,
-and writes these files without arguments or network downloads:
+No arguments or manual input are required. The script finds its own directory,
+compiles all source and tests, stops if a test fails, runs all experiments, verifies
+every schedule, and writes fresh results to `code/results/`. It can be invoked
+from outside the project directory, including paths containing spaces.
+Use `CXX=clang++ ./run.sh` to select a compiler. On Windows use WSL, or Git Bash
+with MSYS2 g++ installed, and `sh run.sh`; native Windows execution is not required.
 
-- `code/results/test_summary.txt`: foundation, graph, scheduler/export/workload tests and the
-  engine/integration groups, including 960 fixture-graph and 960 real-graph comparisons with a
-  tick oracle, generated-workload/configuration combinations, and production schedulers run
-  through the real engine.
-- `code/results/heap_event_demo.csv`: illustrative heap ordering, **not a schedule**.
-- `code/results/engine_fixture_trace.csv`: a real engine trace for the six-task
-  FIFO fixture, using the **real graph and a test-only scheduler**, checked by
-  Shaswitha's independent trace verifier; not the CSV pipeline.
-- `code/results/engine_checkpoint.txt`: fixture makespan, busy ticks and engine
-  counters; not a full benchmark report.
-- `code/results/project_status.txt`: implemented and pending functionality.
+Open `code/results/index.html` in a browser for links to the result charts.
+The report is `Group4_Final_Report.pdf` in the submission package. The source
+repository keeps its editable report content under `docs/FINAL_REPORT.md`.
 
-On Windows, run this from Git Bash (or WSL), not PowerShell, with a C++17
-compiler such as MSYS2 g++ on PATH. Be inside the project folder first:
-`cd gpu-task-scheduler && sh run.sh`. On these shells `run.sh` links statically,
-because Git Bash can otherwise load an older `libstdc++-6.dll` and crash.
+## Implemented modules
 
-You may select a compiler with `CXX=clang++ ./run.sh`. GitHub Actions runs this same
-entry point on Linux and macOS. The final version must extend the pipeline to
-validate workloads, run the full comparisons and generate CSV/SVG results.
-
-## Four students and four data structures
-
-| Owner | Custom structure | Integration responsibility |
+| Student | Custom data structure | Production use |
 | --- | --- | --- |
-| Pranav | Binary heap | Events, engine, shared executable and run script |
-| Aayush | Circular-array deque | FIFO queues, policy selection, static placement and export |
-| Shaswitha | Adjacency-list directed graph | DAG algorithms, readiness metadata and trace validation |
-| Divyaa | Chained hash table | Task-ID lookup, parser and metrics |
+| Pranav Sathyabodha Kumsi | Binary heap | Event queue; SJF/critical-path priority queues |
+| Aayush Agrawal | Circular-array deque | Central FIFO, static local FIFO, work stealing |
+| Shaswitha Fernandez | Adjacency-list directed graph | Dependencies, Kahn ordering, critical-path ranks, verification |
+| Divyaa Natarajan | Separate-chaining hash table | Task-ID lookup and duplicate dependency detection in the CSV parser |
 
-Use `std::vector`/arrays as storage, but implement heap sifting, ring operations,
-adjacency links, hashing and rehashing yourselves. Do not replace the assigned
-structures with equivalent STL containers. Test-only reference containers are
-allowed. These are team design decisions, not a claim about additional course rules.
+Each ordinary FIFO experiment uses all four structures. Production code uses
+vectors as backing storage; equivalent STL containers are used only in reference
+tests. Final integration, additional tests, instrumentation, reports and packaging
+were AI-assisted at Pranav's request. See `docs/CONTRIBUTIONS.md` for provenance.
+
+## Experiments
+
+- 36 main inputs: chain, fork-join, mixed independent and layered DAGs, with
+  100/1,000/10,000 tasks. Mixed/layered use seeds 101/202/303/404/505.
+- Each main input runs on 1/2/4/8 virtual units with central FIFO, SJF and CP,
+  static FIFO and work-stealing FIFO: 720 runs.
+- 12 owner-skew inputs run central/static/stealing FIFO at their matching P:
+  36 runs. These P-dependent inputs are not used for cross-P speedup claims.
+- Total: **756 verified benchmark runs**, plus five six-task demonstrations.
+
+Inputs are saved under `code/data/workloads/`; generator rules and regeneration
+commands are in `code/config/README.md`. Every measured result is passed through
+Shaswitha's independent trace verifier before Divyaa's metrics are exported.
+
+## Generated outputs
+
+| File in `code/results/` | Meaning |
+| --- | --- |
+| `test_summary.txt` | Individual test groups and pass/fail totals |
+| `metrics.csv`, `results.csv` | Identical 756-row virtual metric tables |
+| `per_unit.csv` | Useful busy ticks for each unit and run |
+| `trace.csv`, `six_task_metrics.csv` | Five production traces and metrics for the hand oracle |
+| `ds_metrics.csv` | Event/ready heap and deque counts, work-stealing search counts |
+| `engine_metrics.csv` | Timestamp batches, successor visits, dispatch calls, ready tasks |
+| `preprocessing.csv` | Hash operations and graph sizes, once per loaded workload |
+| `experiment_manifest.csv` | Input path, family, seed, N, E, P and policy for every run |
+| `run_manifest.txt` | Compiler, flags, host, source version and input CRC checksums |
+| `summary.txt`, `index.html`, `*.svg` | Experiment summary and standalone chart index/files |
+
+Times are virtual ticks, not seconds or GPU measurements. Utilization includes
+release-related idle time because makespan is measured from tick zero. Missing
+ratios/empty averages are `N/A`. No claim is made that one policy is always best.
+Results overwrite the same named files on rerun. Use a fresh directory for a
+submission check so stale outputs from previous versions cannot be mistaken for
+current results.
 
 ## Directory structure
 
 ```text
-run.sh                    argument-free build, tests and checkpoint outputs
-code/include/gpu/         shared types, module contracts and ordering keys
-code/include/gpu/ds/      four custom data structure APIs
-code/src/                 current executable; implementation modules go here
-code/tests/               tests compiled into the executable
-code/data/fixtures/       valid and invalid workload inputs
-code/data/expected/       hand-calculated test oracles, not measured output
-code/data/workloads/      saved owner-skew workload CSVs (12) and their generator settings
-code/config/              planned default experiment configuration
-code/build/               generated executable, ignored by Git
-code/results/             generated output, ignored by Git
-docs/                     contracts, tasks and contribution records
-.github/                  CI and pull-request template
+run.sh                         no-argument build + tests + experiments
+README.md                      setup and output guide
+code/include/gpu/              types, contracts, data structures and module APIs
+code/src/                      implementation and experiment driver
+code/tests/                    module, reference and integration tests
+code/data/fixtures/             small valid/invalid test CSVs
+code/data/expected/             hand-calculated test answers
+code/data/workloads/            48 saved benchmark inputs and generator settings
+code/config/                   deterministic experiment settings
+code/build/                    generated binaries (excluded from submission)
+code/results/                  regenerated metrics, traces and charts
+code/tools/                    optional development tools in the submission
+docs/                         design, contribution and presentation notes
+.github/workflows/build.yml    Linux/macOS build and Linux sanitizer CI
+tools/                        optional developer audits and report/package builders
 ```
 
-Start with [the team quickstart](docs/QUICKSTART.md), [the scheduler/export integration guide](docs/INTEGRATION_AAYUSH.md),
-[shared contracts](docs/CONTRACTS.md), and [the task board](docs/TASKS.md).
-Record real implementation and review evidence in [contributions](docs/CONTRIBUTIONS.md).
-For Pranav's engine walkthrough and teammate handoffs, read
-[the event-engine guide](docs/EVENT_ENGINE.md).
+## Additional verification
 
-## Milestones
+The grading path requires no Python. Developers with Python 3 can additionally
+run `python3 tools/verify_outputs.py` after `./run.sh` to audit the output table,
+closed-form workload results, counters and SVG XML independently. The submission
+copy places that optional tool under `code/tools/` (pass the project root as its
+argument). Linux CI also runs AddressSanitizer and UndefinedBehaviorSanitizer.
 
-- November 1, 2026: agree on the contracts in this checkpoint.
-- November 4: four custom structures with meaningful unit tests.
-- November 8: dependent FIFO workload running through all four structures.
-- November 12: central FIFO/SJF/CP and independent trace verification.
-- November 20: required code and documentation merged and tested.
-- November 21-23: final integration; November 24-30: fixes, report and rehearsal.
-
-The final package is `Group4_Project.zip` with a report, dedicated code folder,
-root README and executable `run.sh`. This checkpoint alone is not submission-ready.
+See `docs/FINAL_INTEGRATION.md` for final validation evidence, `docs/CONTRACTS.md`
+for semantics, and `docs/PRESENTATION_GUIDE.md` for each member's walkthrough.
