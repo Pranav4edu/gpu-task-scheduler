@@ -1,3 +1,25 @@
+# Final integration update - November 23, 2026
+
+The records below preserve module provenance. Final integration was performed at
+Pranav's request with OpenAI Codex assistance; it is not additional independent
+work attributed to another student. The integration merge retains Divyaa's commit
+`6314ab4`, Aayush's history through `f8057f1`, Shaswitha's `611f365`, and Pranav's
+engine `bb73b9d`. The export fix `8fdbcfc` was published to PR #6.
+
+Completed in the final integration: shared test-runner merge, `load_and_validate`,
+complete no-argument experiment driver, 36 additional saved main workloads, hash
+instrumentation, event/graph/preprocessing evidence, seven full-pipeline tests,
+960 production comparisons against the independent tick oracle, CI directory
+fix, output audit, final measured report, presentation guide and packaging.
+
+Divyaa's submitted module includes the custom hash table, two-pass parser,
+metrics and 16 test groups. Owner understanding, a live presentation and any
+course-required personal acknowledgments must be completed by the students;
+this document does not assert those occurred. Historical pending statements
+below describe their original checkpoints, not the current implementation.
+
+---
+
 # Individual contribution and evidence
 
 This record describes implementation status and available verification evidence;

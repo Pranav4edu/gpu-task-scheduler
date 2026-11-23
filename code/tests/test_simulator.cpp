@@ -247,6 +247,9 @@ void randomized_differential() {
                 const auto real=simulate_with_scheduler(workload,config,real_scheduler);
                 same_result(real,expected);
                 verify_result(workload,config,real);
+                const auto production = simulate(workload,config);
+                same_result(production,expected);
+                verify_result(workload,config,production);
                 require(workload.graph.indegrees()==graph.degrees, "random run changed graph indegrees");
             }
         }
@@ -356,7 +359,7 @@ int run_engine_tests(std::ostream& output) {
             invalid.successors[0][0]=1; ReferenceScheduler mismatch({});
             rejects<std::invalid_argument>([&]{simulate_events({{"a",0,1},{"b",0,2}},invalid.view(),{}, {},mismatch);});
         }},
-        {"960 fixture and 960 real-graph cases match tick oracle", randomized_differential},
+        {"960 fixture, 960 real-graph and 960 production cases match tick oracle", randomized_differential},
         {"real graph generators pass 72 engine and verifier combinations", [] {
             const std::vector<ParsedInput> inputs={make_chain_workload(0),make_chain_workload(1),
                 make_chain_workload(40,3,2),make_fork_join_workload(1),
@@ -409,7 +412,7 @@ int run_engine_tests(std::ostream& output) {
         try { test.second(); output << "PASS engine: " << test.first << '\n'; }
         catch (const std::exception& error) { ++failed; output << "FAIL engine: " << test.first << ": " << error.what() << '\n'; }
     }
-    output << tests.size()-failed << '/' << tests.size() << " engine/integration tests passed (real graph plus fixture graph; test-only schedulers).\n";
+    output << tests.size()-failed << '/' << tests.size() << " engine/integration tests passed (real/fixture graphs; reference and production schedulers).\n";
     return failed==0 ? 0 : 1;
 }
 

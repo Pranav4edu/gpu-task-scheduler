@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Compile, test and run the current checkpoint
         run: ./run.sh
+      - name: Audit generated metrics and charts independently
+        run: python3 tools/verify_outputs.py
       - name: Check memory and undefined behavior on Linux
         if: runner.os == 'Linux'
         run: |
@@ -24,4 +26,5 @@ jobs:
             -fsanitize=address,undefined -fno-omit-frame-pointer \
             -Icode/include code/src/*.cpp code/tests/*.cpp \
             -o code/build/gpu_sim_sanitized
-          ./code/build/gpu_sim_sanitized --self-test
+          cd code
+          ./build/gpu_sim_sanitized --self-test
