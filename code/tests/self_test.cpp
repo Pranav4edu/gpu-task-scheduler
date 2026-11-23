@@ -4,6 +4,7 @@
 #include "gpu/ds/directed_graph.hpp"
 #include "gpu/ds/id_hash_table.hpp"
 #include "gpu/ds/ring_deque.hpp"
+#include "gpu/hash_parser_metrics_tests.hpp"
 #include "gpu/priority.hpp"
 #include "gpu/workload_generators.hpp"
 #include "../src/dag_algorithms.hpp"
@@ -813,6 +814,8 @@ int run_self_tests(std::ostream& output) {
     for (auto& t : stealing_tests()) tests.push_back(std::move(t));
     for (auto& t : ds_metrics_tests()) tests.push_back(std::move(t));
     for (auto& t : scheduler_engine_tests()) tests.push_back(std::move(t));
+    for (auto& t : hash_parser_metrics_tests()) tests.push_back(std::move(t));
+
     std::size_t failed=0;
     for(const auto& test:tests){
         try {test.second();output<<"PASS "<<test.first<<'\n';}
@@ -820,7 +823,7 @@ int run_self_tests(std::ostream& output) {
     }
     output<<tests.size()-failed<<'/'<<tests.size()<<" foundation and graph tests passed\n";
     const int engine_failed = run_engine_tests(output);
-    output<<"Pending integration: hash table, parser, metrics and full-result tests.\n";
     return failed==0 && engine_failed==0 ? 0 : 1;
+
 }
 } // namespace gpu
